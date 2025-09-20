@@ -50,6 +50,7 @@ export const users = pgTable("users", {
   // Additional fields for the app
   code: varchar("code").unique(),
   designation: varchar("designation"),
+  department: varchar("department"),
   dateOfJoining: timestamp("date_of_joining"),
   mobileNumber: varchar("mobile_number"),
   reportingManagerId: varchar("reporting_manager_id"),
@@ -157,6 +158,19 @@ export const emailConfig = pgTable("email_config", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Secure access tokens for email links
+export const accessTokens = pgTable("access_tokens", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  token: varchar("token").notNull().unique(),
+  userId: varchar("user_id").notNull(),
+  evaluationId: varchar("evaluation_id").notNull(),
+  tokenType: varchar("token_type").notNull(), // 'self_evaluation', 'manager_review'
+  expiresAt: timestamp("expires_at").notNull(),
+  usedAt: timestamp("used_at"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Relations
 export const usersRelations = relations(users, ({ one, many }) => ({
   reportingManager: one(users, {
@@ -262,6 +276,11 @@ export const insertEmailConfigSchema = createInsertSchema(emailConfig).omit({
   updatedAt: true,
 });
 
+export const insertAccessTokenSchema = createInsertSchema(accessTokens).omit({
+  id: true,
+  createdAt: true,
+});
+
 // Upsert user schema for Replit Auth
 export const upsertUserSchema = createInsertSchema(users).pick({
   id: true,
@@ -289,3 +308,5 @@ export type EmailTemplate = typeof emailTemplates.$inferSelect;
 export type InsertEmailTemplate = z.infer<typeof insertEmailTemplateSchema>;
 export type EmailConfig = typeof emailConfig.$inferSelect;
 export type InsertEmailConfig = z.infer<typeof insertEmailConfigSchema>;
+export type AccessToken = typeof accessTokens.$inferSelect;
+export type InsertAccessToken = z.infer<typeof insertAccessTokenSchema>;

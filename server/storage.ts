@@ -7,6 +7,7 @@ import {
   evaluations,
   emailTemplates,
   emailConfig,
+  accessTokens,
   type User,
   type UpsertUser,
   type InsertUser,
@@ -24,6 +25,8 @@ import {
   type InsertEmailTemplate,
   type EmailConfig,
   type InsertEmailConfig,
+  type AccessToken,
+  type InsertAccessToken,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, asc, like, inArray } from "drizzle-orm";
@@ -89,6 +92,13 @@ export interface IStorage {
   getEmailConfig(): Promise<EmailConfig | undefined>;
   createEmailConfig(config: InsertEmailConfig): Promise<EmailConfig>;
   updateEmailConfig(id: string, config: Partial<InsertEmailConfig>): Promise<EmailConfig>;
+  
+  // Access token operations
+  createAccessToken(token: InsertAccessToken): Promise<AccessToken>;
+  getAccessToken(token: string): Promise<AccessToken | undefined>;
+  markTokenAsUsed(token: string): Promise<void>;
+  deactivateToken(token: string): Promise<void>;
+  getActiveTokensByUser(userId: string): Promise<AccessToken[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -171,16 +181,22 @@ export class DatabaseStorage implements IStorage {
 
   // User management operations
   async getUsers(filters?: { role?: string; department?: string; status?: string }): Promise<User[]> {
-    let query = db.select().from(users);
-    
+    const conditions = [];
     if (filters?.role) {
-      query = query.where(eq(users.role, filters.role as any));
+      conditions.push(eq(users.role, filters.role as any));
     }
     if (filters?.status) {
-      query = query.where(eq(users.status, filters.status as any));
+      conditions.push(eq(users.status, filters.status as any));
+    }
+    if (filters?.department) {
+      conditions.push(eq(users.department, filters.department));
     }
     
-    return await query.orderBy(asc(users.firstName));
+    if (conditions.length > 0) {
+      return await db.select().from(users).where(and(...conditions)).orderBy(asc(users.firstName));
+    }
+    
+    return await db.select().from(users).orderBy(asc(users.firstName));
   }
 
   async getUserByEmail(email: string): Promise<User | undefined> {
@@ -289,8 +305,6 @@ export class DatabaseStorage implements IStorage {
 
   // Evaluation operations
   async getEvaluations(filters?: { employeeId?: string; managerId?: string; reviewCycleId?: string; status?: string }): Promise<Evaluation[]> {
-    let query = db.select().from(evaluations);
-    
     const conditions = [];
     if (filters?.employeeId) conditions.push(eq(evaluations.employeeId, filters.employeeId));
     if (filters?.managerId) conditions.push(eq(evaluations.managerId, filters.managerId));
@@ -298,10 +312,10 @@ export class DatabaseStorage implements IStorage {
     if (filters?.status) conditions.push(eq(evaluations.status, filters.status));
     
     if (conditions.length > 0) {
-      query = query.where(and(...conditions));
+      return await db.select().from(evaluations).where(and(...conditions)).orderBy(desc(evaluations.createdAt));
     }
     
-    return await query.orderBy(desc(evaluations.createdAt));
+    return await db.select().from(evaluations).orderBy(desc(evaluations.createdAt));
   }
 
   async getEvaluation(id: string): Promise<Evaluation | undefined> {

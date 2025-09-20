@@ -68,7 +68,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/companies', isAuthenticated, async (req, res) => {
+  app.post('/api/companies', isAuthenticated, requireRoles(['super_admin', 'admin']), async (req, res) => {
     try {
       const companyData = insertCompanySchema.parse(req.body);
       const company = await storage.createCompany(companyData);
@@ -79,7 +79,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put('/api/companies/:id', isAuthenticated, async (req, res) => {
+  app.put('/api/companies/:id', isAuthenticated, requireRoles(['super_admin', 'admin']), async (req, res) => {
     try {
       const { id } = req.params;
       const companyData = insertCompanySchema.partial().parse(req.body);
@@ -91,7 +91,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete('/api/companies/:id', isAuthenticated, async (req, res) => {
+  app.delete('/api/companies/:id', isAuthenticated, requireRoles(['super_admin', 'admin']), async (req, res) => {
     try {
       const { id } = req.params;
       await storage.deleteCompany(id);
@@ -113,7 +113,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/locations', isAuthenticated, async (req, res) => {
+  app.post('/api/locations', isAuthenticated, requireRoles(['super_admin', 'admin']), async (req, res) => {
     try {
       const locationData = insertLocationSchema.parse(req.body);
       const location = await storage.createLocation(locationData);
@@ -124,7 +124,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put('/api/locations/:id', isAuthenticated, async (req, res) => {
+  app.put('/api/locations/:id', isAuthenticated, requireRoles(['super_admin', 'admin']), async (req, res) => {
     try {
       const { id } = req.params;
       const locationData = insertLocationSchema.partial().parse(req.body);
@@ -136,7 +136,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete('/api/locations/:id', isAuthenticated, async (req, res) => {
+  app.delete('/api/locations/:id', isAuthenticated, requireRoles(['super_admin', 'admin']), async (req, res) => {
     try {
       const { id } = req.params;
       await storage.deleteLocation(id);
@@ -209,7 +209,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/questionnaire-templates', isAuthenticated, async (req, res) => {
+  app.post('/api/questionnaire-templates', isAuthenticated, requireRoles(['super_admin', 'admin', 'hr_manager']), async (req, res) => {
     try {
       const templateData = insertQuestionnaireTemplateSchema.parse(req.body);
       const template = await storage.createQuestionnaireTemplate(templateData);
@@ -220,15 +220,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put('/api/questionnaire-templates/:id', isAuthenticated, async (req, res) => {
+  app.get('/api/questionnaire-templates/:id', isAuthenticated, async (req, res) => {
     try {
       const { id } = req.params;
+      const template = await storage.getQuestionnaireTemplate(id);
+      if (!template) {
+        return res.status(404).json({ message: "Questionnaire template not found" });
+      }
+      res.json(template);
+    } catch (error) {
+      console.error("Error fetching questionnaire template:", error);
+      res.status(500).json({ message: "Failed to fetch questionnaire template" });
+    }
+  });
+
+  app.put('/api/questionnaire-templates/:id', isAuthenticated, requireRoles(['super_admin', 'admin', 'hr_manager']), async (req, res) => {
+    try {
+      const { id } = req.params;
+      
+      // Check if template exists
+      const existingTemplate = await storage.getQuestionnaireTemplate(id);
+      if (!existingTemplate) {
+        return res.status(404).json({ message: "Questionnaire template not found" });
+      }
+      
       const templateData = insertQuestionnaireTemplateSchema.partial().parse(req.body);
       const template = await storage.updateQuestionnaireTemplate(id, templateData);
       res.json(template);
     } catch (error) {
       console.error("Error updating questionnaire template:", error);
       res.status(500).json({ message: "Failed to update questionnaire template" });
+    }
+  });
+
+  app.delete('/api/questionnaire-templates/:id', isAuthenticated, requireRoles(['super_admin', 'admin', 'hr_manager']), async (req, res) => {
+    try {
+      const { id } = req.params;
+      
+      // Check if template exists
+      const existingTemplate = await storage.getQuestionnaireTemplate(id);
+      if (!existingTemplate) {
+        return res.status(404).json({ message: "Questionnaire template not found" });
+      }
+      
+      await storage.deleteQuestionnaireTemplate(id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting questionnaire template:", error);
+      res.status(500).json({ message: "Failed to delete questionnaire template" });
     }
   });
 
@@ -243,7 +282,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/review-cycles', isAuthenticated, async (req, res) => {
+  app.get('/api/review-cycles/:id', isAuthenticated, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const cycle = await storage.getReviewCycle(id);
+      if (!cycle) {
+        return res.status(404).json({ message: "Review cycle not found" });
+      }
+      res.json(cycle);
+    } catch (error) {
+      console.error("Error fetching review cycle:", error);
+      res.status(500).json({ message: "Failed to fetch review cycle" });
+    }
+  });
+
+  app.post('/api/review-cycles', isAuthenticated, requireRoles(['super_admin', 'admin', 'hr_manager']), async (req, res) => {
     try {
       const cycleData = insertReviewCycleSchema.parse(req.body);
       const cycle = await storage.createReviewCycle(cycleData);
@@ -254,16 +307,84 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Evaluation routes
-  app.get('/api/evaluations', isAuthenticated, async (req, res) => {
+  app.put('/api/review-cycles/:id', isAuthenticated, requireRoles(['super_admin', 'admin', 'hr_manager']), async (req, res) => {
     try {
+      const { id } = req.params;
+      
+      // Check if review cycle exists
+      const existingCycle = await storage.getReviewCycle(id);
+      if (!existingCycle) {
+        return res.status(404).json({ message: "Review cycle not found" });
+      }
+      
+      const cycleData = insertReviewCycleSchema.partial().parse(req.body);
+      const cycle = await storage.updateReviewCycle(id, cycleData);
+      res.json(cycle);
+    } catch (error) {
+      console.error("Error updating review cycle:", error);
+      res.status(500).json({ message: "Failed to update review cycle" });
+    }
+  });
+
+  app.delete('/api/review-cycles/:id', isAuthenticated, requireRoles(['super_admin', 'admin', 'hr_manager']), async (req, res) => {
+    try {
+      const { id } = req.params;
+      
+      // Check if review cycle exists
+      const existingCycle = await storage.getReviewCycle(id);
+      if (!existingCycle) {
+        return res.status(404).json({ message: "Review cycle not found" });
+      }
+      
+      await storage.deleteReviewCycle(id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting review cycle:", error);
+      res.status(500).json({ message: "Failed to delete review cycle" });
+    }
+  });
+
+  // Evaluation routes
+  app.get('/api/evaluations', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const currentUser = await storage.getUser(userId);
+      if (!currentUser) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
       const { employeeId, managerId, reviewCycleId, status } = req.query;
-      const filters = {
+      let filters = {
         employeeId: employeeId as string,
         managerId: managerId as string,
         reviewCycleId: reviewCycleId as string,
         status: status as string,
       };
+
+      // Apply role-based access control
+      if (currentUser.role === 'employee') {
+        // Employees can only see their own evaluations
+        filters.employeeId = currentUser.id;
+      } else if (currentUser.role === 'manager') {
+        // Managers can see evaluations they manage or their own
+        if (!filters.employeeId && !filters.managerId) {
+          // If no specific filter, show evaluations where they are the manager or employee
+          const userManagedEvaluations = await storage.getEvaluations({ managerId: currentUser.id });
+          const userOwnEvaluations = await storage.getEvaluations({ employeeId: currentUser.id });
+          const combinedEvaluations = [...userManagedEvaluations, ...userOwnEvaluations];
+          // Remove duplicates by id
+          const uniqueEvaluations = combinedEvaluations.filter((evaluation, index, self) => 
+            index === self.findIndex(e => e.id === evaluation.id)
+          );
+          return res.json(uniqueEvaluations);
+        }
+        // Validate they can access the requested data
+        if (filters.managerId && filters.managerId !== currentUser.id) {
+          return res.status(403).json({ message: "Access denied: Cannot view evaluations for other managers" });
+        }
+      }
+      // super_admin, admin, hr_manager can access all evaluations (no additional filtering)
+
       const evaluations = await storage.getEvaluations(filters);
       res.json(evaluations);
     } catch (error) {
@@ -272,7 +393,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/evaluations', isAuthenticated, async (req, res) => {
+  app.post('/api/evaluations', isAuthenticated, requireRoles(['super_admin', 'admin', 'hr_manager']), async (req, res) => {
     try {
       const evaluationData = insertEvaluationSchema.parse(req.body);
       const evaluation = await storage.createEvaluation(evaluationData);
@@ -283,20 +404,222 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put('/api/evaluations/:id', isAuthenticated, async (req, res) => {
+  app.put('/api/evaluations/:id', isAuthenticated, async (req: any, res) => {
     try {
       const { id } = req.params;
+      const userId = req.user.claims.sub;
+      const currentUser = await storage.getUser(userId);
+      if (!currentUser) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      // Get the existing evaluation to check permissions
+      const existingEvaluation = await storage.getEvaluation(id);
+      if (!existingEvaluation) {
+        return res.status(404).json({ message: "Evaluation not found" });
+      }
+
+      // Apply role-based access control for updates
       const evaluationData = insertEvaluationSchema.partial().parse(req.body);
-      const evaluation = await storage.updateEvaluation(id, evaluationData);
-      res.json(evaluation);
+      
+      if (currentUser.role === 'employee') {
+        // Employees can only update their own evaluations and only self-evaluation data
+        if (existingEvaluation.employeeId !== currentUser.id) {
+          return res.status(403).json({ message: "Access denied: Cannot update evaluation for other employees" });
+        }
+        // Restrict what employees can update
+        const allowedUpdates = {
+          selfEvaluationData: evaluationData.selfEvaluationData,
+          selfEvaluationSubmittedAt: evaluationData.selfEvaluationSubmittedAt,
+        };
+        const filteredData = Object.fromEntries(
+          Object.entries(allowedUpdates).filter(([_, value]) => value !== undefined)
+        );
+        const evaluation = await storage.updateEvaluation(id, filteredData);
+        res.json(evaluation);
+      } else if (currentUser.role === 'manager') {
+        // Managers can update evaluations for their direct reports and their own
+        if (existingEvaluation.managerId !== currentUser.id && existingEvaluation.employeeId !== currentUser.id) {
+          return res.status(403).json({ message: "Access denied: Cannot update evaluation for other teams" });
+        }
+        
+        if (existingEvaluation.employeeId === currentUser.id) {
+          // Managers updating their own evaluation (as employee)
+          const allowedUpdates = {
+            selfEvaluationData: evaluationData.selfEvaluationData,
+            selfEvaluationSubmittedAt: evaluationData.selfEvaluationSubmittedAt,
+          };
+          const filteredData = Object.fromEntries(
+            Object.entries(allowedUpdates).filter(([_, value]) => value !== undefined)
+          );
+          const evaluation = await storage.updateEvaluation(id, filteredData);
+          res.json(evaluation);
+        } else {
+          // Managers updating their direct report's evaluation
+          const allowedUpdates = {
+            managerEvaluationData: evaluationData.managerEvaluationData,
+            managerEvaluationSubmittedAt: evaluationData.managerEvaluationSubmittedAt,
+            overallRating: evaluationData.overallRating,
+            finalizedAt: evaluationData.finalizedAt,
+            status: evaluationData.status,
+          };
+          const filteredData = Object.fromEntries(
+            Object.entries(allowedUpdates).filter(([_, value]) => value !== undefined)
+          );
+          const evaluation = await storage.updateEvaluation(id, filteredData);
+          res.json(evaluation);
+        }
+      } else {
+        // super_admin, admin, hr_manager can update any evaluation with any data
+        const evaluation = await storage.updateEvaluation(id, evaluationData);
+        res.json(evaluation);
+      }
     } catch (error) {
       console.error("Error updating evaluation:", error);
       res.status(500).json({ message: "Failed to update evaluation" });
     }
   });
 
+  // Generate evaluations for review cycle
+  app.post('/api/review-cycles/:cycleId/generate-evaluations', isAuthenticated, requireRoles(['super_admin', 'admin', 'hr_manager']), async (req, res) => {
+    try {
+      const { cycleId } = req.params;
+      const { employeeIds } = req.body;
+      
+      // Verify review cycle exists
+      const reviewCycle = await storage.getReviewCycle(cycleId);
+      if (!reviewCycle) {
+        return res.status(404).json({ message: "Review cycle not found" });
+      }
+      
+      const createdEvaluations = [];
+      
+      for (const employeeId of employeeIds) {
+        const employee = await storage.getUser(employeeId);
+        if (!employee) {
+          console.warn(`Employee ${employeeId} not found, skipping`);
+          continue;
+        }
+        
+        // Check if evaluation already exists for this employee and cycle
+        const existingEvaluation = await storage.getEvaluationByEmployeeAndCycle(employeeId, cycleId);
+        if (existingEvaluation) {
+          console.log(`Evaluation already exists for employee ${employeeId} in cycle ${cycleId}, skipping`);
+          continue;
+        }
+        
+        // Get the employee's manager
+        let managerId = employee.reportingManagerId;
+        if (!managerId) {
+          // If no manager assigned, use a default admin/HR manager for now
+          console.warn(`No manager found for employee ${employeeId}`);
+          continue;
+        }
+        
+        // Create evaluation record
+        const evaluationData = {
+          employeeId: employeeId,
+          managerId: managerId,
+          reviewCycleId: cycleId,
+          status: 'draft' as const,
+        };
+        
+        const evaluation = await storage.createEvaluation(evaluationData);
+        createdEvaluations.push(evaluation);
+      }
+      
+      res.status(201).json({
+        message: `Created ${createdEvaluations.length} evaluations`,
+        evaluations: createdEvaluations
+      });
+    } catch (error) {
+      console.error("Error generating evaluations:", error);
+      res.status(500).json({ message: "Failed to generate evaluations" });
+    }
+  });
+
+  // Get evaluation by ID with role-based access
+  app.get('/api/evaluations/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const userId = req.user.claims.sub;
+      const currentUser = await storage.getUser(userId);
+      if (!currentUser) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      const evaluation = await storage.getEvaluation(id);
+      if (!evaluation) {
+        return res.status(404).json({ message: "Evaluation not found" });
+      }
+
+      // Apply role-based access control
+      if (currentUser.role === 'employee') {
+        if (evaluation.employeeId !== currentUser.id) {
+          return res.status(403).json({ message: "Access denied: Cannot view evaluation for other employees" });
+        }
+      } else if (currentUser.role === 'manager') {
+        if (evaluation.managerId !== currentUser.id && evaluation.employeeId !== currentUser.id) {
+          return res.status(403).json({ message: "Access denied: Cannot view evaluation for other teams" });
+        }
+      }
+      // super_admin, admin, hr_manager can access any evaluation
+
+      res.json(evaluation);
+    } catch (error) {
+      console.error("Error fetching evaluation:", error);
+      res.status(500).json({ message: "Failed to fetch evaluation" });
+    }
+  });
+
+  // Finalize an evaluation (manager completes the review process)
+  app.post('/api/evaluations/:id/finalize', isAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const userId = req.user.claims.sub;
+      const currentUser = await storage.getUser(userId);
+      if (!currentUser) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      const evaluation = await storage.getEvaluation(id);
+      if (!evaluation) {
+        return res.status(404).json({ message: "Evaluation not found" });
+      }
+
+      // Only managers, HR, or admins can finalize evaluations
+      if (currentUser.role === 'employee') {
+        return res.status(403).json({ message: "Access denied: Employees cannot finalize evaluations" });
+      }
+
+      if (currentUser.role === 'manager' && evaluation.managerId !== currentUser.id) {
+        return res.status(403).json({ message: "Access denied: Can only finalize evaluations you manage" });
+      }
+
+      // Check if evaluation is ready to be finalized
+      if (!evaluation.selfEvaluationSubmittedAt) {
+        return res.status(400).json({ message: "Cannot finalize: Employee self-evaluation not yet submitted" });
+      }
+
+      if (!evaluation.managerEvaluationSubmittedAt) {
+        return res.status(400).json({ message: "Cannot finalize: Manager evaluation not yet submitted" });
+      }
+
+      // Finalize the evaluation
+      const finalizedEvaluation = await storage.updateEvaluation(id, {
+        status: 'completed',
+        finalizedAt: new Date(),
+      });
+
+      res.json(finalizedEvaluation);
+    } catch (error) {
+      console.error("Error finalizing evaluation:", error);
+      res.status(500).json({ message: "Failed to finalize evaluation" });
+    }
+  });
+
   // Send review invitations
-  app.post('/api/send-review-invitations', isAuthenticated, async (req, res) => {
+  app.post('/api/send-review-invitations', isAuthenticated, requireRoles(['super_admin', 'admin', 'hr_manager']), async (req, res) => {
     try {
       const { employeeIds, reviewCycleId } = req.body;
       
@@ -315,7 +638,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Email configuration routes
-  app.get('/api/email-config', isAuthenticated, async (req, res) => {
+  app.get('/api/email-config', isAuthenticated, requireRoles(['super_admin', 'admin']), async (req, res) => {
     try {
       const config = await storage.getEmailConfig();
       res.json(config);
@@ -325,7 +648,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/email-config', isAuthenticated, async (req, res) => {
+  app.post('/api/email-config', isAuthenticated, requireRoles(['super_admin', 'admin']), async (req, res) => {
     try {
       const configData = insertEmailConfigSchema.parse(req.body);
       const config = await storage.createEmailConfig(configData);
@@ -354,7 +677,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "logoURL is required" });
       }
 
-      const userId = req.user?.claims?.sub;
+      const userId = (req.user as any)?.claims?.sub;
       const objectStorageService = new ObjectStorageService();
       const objectPath = await objectStorageService.trySetObjectEntityAclPolicy(
         req.body.logoURL,
