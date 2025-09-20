@@ -395,6 +395,45 @@ export class DatabaseStorage implements IStorage {
       .returning();
     return updatedConfig;
   }
+
+  // Access token operations
+  async createAccessToken(token: InsertAccessToken): Promise<AccessToken> {
+    const [newToken] = await db.insert(accessTokens).values(token).returning();
+    return newToken;
+  }
+
+  async getAccessToken(token: string): Promise<AccessToken | undefined> {
+    const [accessToken] = await db.select().from(accessTokens).where(
+      and(
+        eq(accessTokens.token, token),
+        eq(accessTokens.isActive, true)
+      )
+    );
+    return accessToken;
+  }
+
+  async markTokenAsUsed(token: string): Promise<void> {
+    await db
+      .update(accessTokens)
+      .set({ usedAt: new Date() })
+      .where(eq(accessTokens.token, token));
+  }
+
+  async deactivateToken(token: string): Promise<void> {
+    await db
+      .update(accessTokens)
+      .set({ isActive: false })
+      .where(eq(accessTokens.token, token));
+  }
+
+  async getActiveTokensByUser(userId: string): Promise<AccessToken[]> {
+    return await db.select().from(accessTokens).where(
+      and(
+        eq(accessTokens.userId, userId),
+        eq(accessTokens.isActive, true)
+      )
+    ).orderBy(desc(accessTokens.createdAt));
+  }
 }
 
 export const storage = new DatabaseStorage();

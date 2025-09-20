@@ -14,6 +14,7 @@ import {
 } from "@shared/schema";
 import { sendEmail, sendReviewInvitation, sendReviewReminder, sendReviewCompletion } from "./emailService";
 import { ObjectStorageService } from "./objectStorage";
+import { seedTestUsers, testUsers } from "./seedUsers";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
@@ -693,6 +694,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error setting company logo:", error);
       res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Development endpoints for user seeding and testing
+  app.post('/api/dev/seed-users', async (req, res) => {
+    try {
+      await seedTestUsers();
+      res.json({ 
+        message: "Test users seeded successfully",
+        users: testUsers.map(u => ({ 
+          role: u.role, 
+          email: u.email, 
+          name: `${u.firstName} ${u.lastName}` 
+        }))
+      });
+    } catch (error) {
+      console.error("Error seeding users:", error);
+      res.status(500).json({ message: "Failed to seed users" });
+    }
+  });
+
+  app.get('/api/dev/test-users', async (req, res) => {
+    try {
+      res.json({
+        message: "Available test user accounts",
+        instructions: "After seeding, you can login with any Replit account and manually change your role in the database, or use the 'Switch User' functionality if implemented",
+        testUsers: testUsers.map(u => ({
+          role: u.role,
+          email: u.email,
+          name: `${u.firstName} ${u.lastName}`,
+          id: u.id
+        }))
+      });
+    } catch (error) {
+      console.error("Error getting test users:", error);
+      res.status(500).json({ message: "Failed to get test users" });
     }
   });
 
