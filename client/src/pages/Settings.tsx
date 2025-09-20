@@ -15,9 +15,9 @@ import { useAuth } from "@/hooks/useAuth";
 import { apiRequest } from "@/lib/queryClient";
 import { Settings as SettingsIcon, Key, Mail, User, Shield, ChevronRight } from "lucide-react";
 
-// Schema for password change
+// Schema for password change - current password optional for OIDC accounts
 const passwordChangeSchema = z.object({
-  currentPassword: z.string().min(1, "Current password is required"),
+  currentPassword: z.string().optional(),
   newPassword: z.string().min(6, "Password must be at least 6 characters"),
   confirmPassword: z.string().min(6, "Password confirmation is required"),
 }).refine((data) => data.newPassword === data.confirmPassword, {
@@ -223,16 +223,19 @@ export default function Settings() {
                       name="currentPassword"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Current Password</FormLabel>
+                          <FormLabel>Current Password <span className="text-muted-foreground">(optional if none set)</span></FormLabel>
                           <FormControl>
                             <Input 
                               type="password" 
-                              placeholder="Enter current password"
+                              placeholder="Enter current password (leave blank if none set)"
                               data-testid="input-current-password"
                               {...field} 
                             />
                           </FormControl>
                           <FormMessage />
+                          <p className="text-sm text-muted-foreground">
+                            Leave current password blank if this is your first time setting a password
+                          </p>
                         </FormItem>
                       )}
                     />

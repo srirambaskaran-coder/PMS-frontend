@@ -643,14 +643,17 @@ export class DatabaseStorage implements IStorage {
       throw new Error('User not found');
     }
 
-    // Verify the current password
+    // Handle OIDC accounts that don't have passwords set yet
     if (!user.passwordHash) {
-      throw new Error('No password set for this account');
-    }
-
-    const isCurrentPasswordValid = await bcrypt.compare(currentPassword, user.passwordHash);
-    if (!isCurrentPasswordValid) {
-      throw new Error('Current password is incorrect');
+      // For accounts without passwords (OIDC accounts), allow setting initial password
+      // Skip current password validation since there's no existing password
+      console.log(`Setting initial password for OIDC user: ${userId}`);
+    } else {
+      // For accounts with existing passwords, validate current password
+      const isCurrentPasswordValid = await bcrypt.compare(currentPassword, user.passwordHash);
+      if (!isCurrentPasswordValid) {
+        throw new Error('Current password is incorrect');
+      }
     }
 
     // Hash the new password

@@ -765,13 +765,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Settings routes - Change password and Email Service configuration
-  app.post('/api/settings/change-password', isAuthenticated, requireRoles(['super_admin', 'admin']), async (req, res) => {
+  app.post('/api/settings/change-password', isAuthenticated, requireRoles(['super_admin', 'admin']), async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const { currentPassword, newPassword } = req.body;
 
-      if (!currentPassword || !newPassword) {
-        return res.status(400).json({ message: "Current password and new password are required" });
+      if (!newPassword) {
+        return res.status(400).json({ message: "New password is required" });
       }
 
       if (newPassword.length < 6) {
@@ -794,7 +794,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const config = await storage.getEmailConfig();
       if (config) {
         // Remove sensitive password field from response
-        const { password, ...safeConfig } = config;
+        const { smtpPassword, ...safeConfig } = config;
         res.json(safeConfig);
       } else {
         res.json(null);
@@ -810,11 +810,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { host, port, username, password, secure, fromEmail, fromName } = req.body;
       
       const emailConfigData = {
-        host,
-        port: parseInt(port),
-        username,
-        password,
-        secure: Boolean(secure),
+        smtpHost: host,
+        smtpPort: parseInt(port),
+        smtpUsername: username,
+        smtpPassword: password,
         fromEmail,
         fromName,
         isActive: true,
@@ -830,14 +829,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         result = await storage.updateEmailConfig(existingConfig.id, emailConfigData);
       } else {
         // Create new config
-        result = await storage.createEmailConfig({
-          ...emailConfigData,
-          createdAt: new Date(),
-        });
+        result = await storage.createEmailConfig(emailConfigData);
       }
 
       // Remove password from response
-      const { password: _, ...safeResult } = result;
+      const { smtpPassword: _, ...safeResult } = result;
       res.json(safeResult);
     } catch (error) {
       console.error("Error saving email settings:", error);
