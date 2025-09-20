@@ -1,0 +1,514 @@
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { insertQuestionnaireTemplateSchema, type QuestionnaireTemplate, type InsertQuestionnaireTemplate } from "@shared/schema";
+import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import { RoleGuard } from "@/components/RoleGuard";
+import { isUnauthorizedError } from "@/lib/authUtils";
+import { Plus, Search, Edit, Trash2, FileText, Minus } from "lucide-react";
+
+interface Question {
+  id: string;
+  text: string;
+  type: 'text' | 'rating' | 'textarea';
+  required: boolean;
+}
+
+export default function QuestionnaireTemplates() {
+  const [searchQuery, setSearchQuery] = useState("");
+  const [roleFilter, setRoleFilter] = useState("");
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [editingTemplate, setEditingTemplate] = useState<QuestionnaireTemplate | null>(null);
+  const [questions, setQuestions] = useState<Question[]>([]);
+
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const { data: templates = [], isLoading } = useQuery<QuestionnaireTemplate[]>({
+    queryKey: ["/api/questionnaire-templates"],
+    onError: (error) => {
+      if (isUnauthorizedError(error as Error)) {
+        toast({
+          title: "Unauthorized",
+          description: "You are logged out. Logging in again...",
+          variant: "destructive",
+        });
+        setTimeout(() => {
+          window.location.href = "/api/login";
+        }, 500);
+      }
+    },
+  });
+
+  const createTemplateMutation = useMutation({
+    mutationFn: async (templateData: InsertQuestionnaireTemplate) => {
+      await apiRequest("POST", "/api/questionnaire-templates", templateData);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/questionnaire-templates"] });
+      setIsCreateModalOpen(false);
+      toast({
+        title: "Success",
+        description: "Questionnaire template created successfully",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: "Failed to create questionnaire template",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const updateTemplateMutation = useMutation({
+    mutationFn: async ({ id, templateData }: { id: string; templateData: Partial<InsertQuestionnaireTemplate> }) => {
+      await apiRequest("PUT", `/api/questionnaire-templates/${id}`, templateData);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/questionnaire-templates"] });
+      setEditingTemplate(null);
+      toast({
+        title: "Success",
+        description: "Questionnaire template updated successfully",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: "Failed to update questionnaire template",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteTemplateMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await apiRequest("DELETE", `/api/questionnaire-templates/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/questionnaire-templates"] });
+      toast({
+        title: "Success",
+        description: "Questionnaire template deleted successfully",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: "Failed to delete questionnaire template",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const form = useForm<InsertQuestionnaireTemplate>({
+    resolver: zodResolver(insertQuestionnaireTemplateSchema),
+    defaultValues: {
+      name: "",
+      description: "",
+      targetRole: "employee",
+      questions: [],
+      year: new Date().getFullYear(),
+      status: "active",
+    },
+  });
+
+  const addQuestion = () => {
+    const newQuestion: Question = {
+      id: Date.now().toString(),
+      text: "",
+      type: "text",
+      required: true,
+    };
+    setQuestions([...questions, newQuestion]);
+  };
+
+  const removeQuestion = (id: string) => {
+    setQuestions(questions.filter(q => q.id !== id));
+  };
+
+  const updateQuestion = (id: string, field: keyof Question, value: any) => {
+    setQuestions(questions.map(q => 
+      q.id === id ? { ...q, [field]: value } : q
+    ));
+  };
+
+  const onSubmit = (data: InsertQuestionnaireTemplate) => {
+    const templateData = {
+      ...data,
+      questions: questions,
+    };
+
+    if (editingTemplate) {
+      updateTemplateMutation.mutate({ id: editingTemplate.id, templateData });
+    } else {
+      createTemplateMutation.mutate(templateData);
+    }
+  };
+
+  const handleEdit = (template: QuestionnaireTemplate) => {
+    setEditingTemplate(template);
+    form.reset({
+      name: template.name,
+      description: template.description || "",
+      targetRole: template.targetRole,
+      year: template.year || new Date().getFullYear(),
+      status: template.status || "active",
+    });
+    setQuestions((template.questions as Question[]) || []);
+  };
+
+  const handleDelete = (id: string) => {
+    if (confirm("Are you sure you want to delete this questionnaire template?")) {
+      deleteTemplateMutation.mutate(id);
+    }
+  };
+
+  const resetForm = () => {
+    setEditingTemplate(null);
+    setQuestions([]);
+    form.reset({
+      name: "",
+      description: "",
+      targetRole: "employee",
+      questions: [],
+      year: new Date().getFullYear(),
+      status: "active",
+    });
+  };
+
+  const filteredTemplates = templates.filter((template) => {
+    const matchesSearch = searchQuery === "" || 
+      template.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      template.description?.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    const matchesRole = roleFilter === "" || template.targetRole === roleFilter;
+    
+    return matchesSearch && matchesRole;
+  });
+
+  return (
+    <RoleGuard allowedRoles={["admin", "hr_manager"]}>
+      <div className="space-y-6" data-testid="questionnaire-templates">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold">Questionnaire Templates</h1>
+            <p className="text-muted-foreground">Manage performance review questionnaire templates</p>
+          </div>
+          <Dialog open={isCreateModalOpen || !!editingTemplate} onOpenChange={(open) => {
+            if (!open) {
+              setIsCreateModalOpen(false);
+              resetForm();
+            }
+          }}>
+            <DialogTrigger asChild>
+              <Button onClick={() => setIsCreateModalOpen(true)} data-testid="add-template-button">
+                <Plus className="h-4 w-4 mr-2" />
+                Add Template
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>{editingTemplate ? "Edit Template" : "Add New Template"}</DialogTitle>
+                <DialogDescription>
+                  {editingTemplate ? "Update questionnaire template" : "Create a new questionnaire template"}
+                </DialogDescription>
+              </DialogHeader>
+              <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="name"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Template Name</FormLabel>
+                          <FormControl>
+                            <Input {...field} placeholder="Q4 2023 Employee Review" data-testid="input-template-name" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="targetRole"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Target Role</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value}>
+                            <FormControl>
+                              <SelectTrigger data-testid="select-target-role">
+                                <SelectValue placeholder="Select target role" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="employee">Employee</SelectItem>
+                              <SelectItem value="manager">Manager</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  <FormField
+                    control={form.control}
+                    name="description"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Description</FormLabel>
+                        <FormControl>
+                          <Textarea {...field} placeholder="Template description..." data-testid="input-description" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="year"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Year</FormLabel>
+                          <FormControl>
+                            <Input 
+                              type="number" 
+                              {...field} 
+                              onChange={(e) => field.onChange(parseInt(e.target.value))}
+                              data-testid="input-year" 
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="status"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Status</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value}>
+                            <FormControl>
+                              <SelectTrigger data-testid="select-status">
+                                <SelectValue placeholder="Select status" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="active">Active</SelectItem>
+                              <SelectItem value="inactive">Inactive</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  {/* Questions Section */}
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-lg font-medium">Questions</h3>
+                      <Button type="button" onClick={addQuestion} variant="outline" size="sm">
+                        <Plus className="h-4 w-4 mr-2" />
+                        Add Question
+                      </Button>
+                    </div>
+
+                    {questions.map((question, index) => (
+                      <Card key={question.id} className="p-4">
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <h4 className="font-medium">Question {index + 1}</h4>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => removeQuestion(question.id)}
+                            >
+                              <Minus className="h-4 w-4" />
+                            </Button>
+                          </div>
+                          <div className="grid grid-cols-3 gap-4">
+                            <div className="col-span-2">
+                              <Input
+                                placeholder="Enter question text..."
+                                value={question.text}
+                                onChange={(e) => updateQuestion(question.id, 'text', e.target.value)}
+                              />
+                            </div>
+                            <Select
+                              value={question.type}
+                              onValueChange={(value) => updateQuestion(question.id, 'type', value)}
+                            >
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="text">Text</SelectItem>
+                                <SelectItem value="textarea">Long Text</SelectItem>
+                                <SelectItem value="rating">Rating (1-5)</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                      </Card>
+                    ))}
+
+                    {questions.length === 0 && (
+                      <div className="text-center py-8 border-2 border-dashed border-muted rounded-lg">
+                        <FileText className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+                        <p className="text-muted-foreground">No questions added yet</p>
+                        <p className="text-sm text-muted-foreground">Click "Add Question" to get started</p>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex gap-3 pt-4">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        setIsCreateModalOpen(false);
+                        resetForm();
+                      }}
+                      className="flex-1"
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      type="submit"
+                      className="flex-1"
+                      disabled={createTemplateMutation.isPending || updateTemplateMutation.isPending}
+                      data-testid="submit-template"
+                    >
+                      {editingTemplate ? "Update Template" : "Create Template"}
+                    </Button>
+                  </div>
+                </form>
+              </Form>
+            </DialogContent>
+          </Dialog>
+        </div>
+
+        {/* Filters */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Filters</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-col sm:flex-row gap-4">
+              <div className="flex-1 relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search templates..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10"
+                  data-testid="search-templates"
+                />
+              </div>
+              <Select value={roleFilter} onValueChange={setRoleFilter}>
+                <SelectTrigger className="w-[180px]" data-testid="filter-role">
+                  <SelectValue placeholder="All Roles" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">All Roles</SelectItem>
+                  <SelectItem value="employee">Employee</SelectItem>
+                  <SelectItem value="manager">Manager</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Templates Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {isLoading ? (
+            [...Array(6)].map((_, i) => (
+              <Card key={i} className="animate-pulse">
+                <CardContent className="p-6">
+                  <div className="h-20 bg-muted rounded mb-4"></div>
+                  <div className="h-6 bg-muted rounded mb-2"></div>
+                  <div className="h-4 bg-muted rounded"></div>
+                </CardContent>
+              </Card>
+            ))
+          ) : filteredTemplates.length === 0 ? (
+            <div className="col-span-full text-center py-12">
+              <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <p className="text-muted-foreground text-lg mb-2">No templates found</p>
+              <p className="text-muted-foreground text-sm">Create your first questionnaire template</p>
+            </div>
+          ) : (
+            filteredTemplates.map((template) => (
+              <Card key={template.id} data-testid={`template-card-${template.id}`}>
+                <CardContent className="p-6">
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 bg-primary rounded-lg flex items-center justify-center">
+                        <FileText className="h-6 w-6 text-primary-foreground" />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold" data-testid={`template-name-${template.id}`}>
+                          {template.name}
+                        </h3>
+                        <div className="flex gap-2 mt-1">
+                          <Badge variant="secondary">
+                            {template.targetRole}
+                          </Badge>
+                          <Badge variant={template.status === 'active' ? 'default' : 'secondary'}>
+                            {template.status}
+                          </Badge>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleEdit(template)}
+                        data-testid={`edit-template-${template.id}`}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleDelete(template.id)}
+                        data-testid={`delete-template-${template.id}`}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2 text-sm text-muted-foreground">
+                    {template.description && <p>{template.description}</p>}
+                    <p>Year: {template.year}</p>
+                    <p>Questions: {Array.isArray(template.questions) ? template.questions.length : 0}</p>
+                  </div>
+                </CardContent>
+              </Card>
+            ))
+          )}
+        </div>
+      </div>
+    </RoleGuard>
+  );
+}
