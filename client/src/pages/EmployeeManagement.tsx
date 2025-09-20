@@ -42,11 +42,11 @@ export default function EmployeeManagement() {
       : ["/api/users"],
   });
 
-  const { data: locations = [] } = useQuery({
+  const { data: locations = [] } = useQuery<any[]>({
     queryKey: ["/api/locations"],
   });
 
-  const { data: companies = [] } = useQuery({
+  const { data: companies = [] } = useQuery<any[]>({
     queryKey: ["/api/companies"],
   });
 
@@ -240,7 +240,7 @@ export default function EmployeeManagement() {
                         <FormItem>
                           <FormLabel>First Name</FormLabel>
                           <FormControl>
-                            <Input {...field} data-testid="input-first-name" />
+                            <Input {...field} value={field.value ?? ""} data-testid="input-first-name" />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -253,7 +253,7 @@ export default function EmployeeManagement() {
                         <FormItem>
                           <FormLabel>Last Name</FormLabel>
                           <FormControl>
-                            <Input {...field} data-testid="input-last-name" />
+                            <Input {...field} value={field.value ?? ""} data-testid="input-last-name" />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -269,7 +269,7 @@ export default function EmployeeManagement() {
                         <FormItem>
                           <FormLabel>Email</FormLabel>
                           <FormControl>
-                            <Input type="email" {...field} data-testid="input-email" />
+                            <Input type="email" {...field} value={field.value ?? ""} data-testid="input-email" />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -282,7 +282,7 @@ export default function EmployeeManagement() {
                         <FormItem>
                           <FormLabel>Employee Code</FormLabel>
                           <FormControl>
-                            <Input {...field} data-testid="input-code" />
+                            <Input {...field} value={field.value ?? ""} data-testid="input-code" />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -298,7 +298,7 @@ export default function EmployeeManagement() {
                         <FormItem>
                           <FormLabel>Designation</FormLabel>
                           <FormControl>
-                            <Input {...field} data-testid="input-designation" />
+                            <Input {...field} value={field.value ?? ""} data-testid="input-designation" />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -311,7 +311,7 @@ export default function EmployeeManagement() {
                         <FormItem>
                           <FormLabel>Mobile Number</FormLabel>
                           <FormControl>
-                            <Input {...field} data-testid="input-mobile" />
+                            <Input {...field} value={field.value ?? ""} data-testid="input-mobile" />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -326,7 +326,7 @@ export default function EmployeeManagement() {
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Location</FormLabel>
-                          <Select onValueChange={field.onChange} value={field.value}>
+                          <Select onValueChange={field.onChange} value={field.value ?? "none"}>
                             <FormControl>
                               <SelectTrigger data-testid="select-location">
                                 <SelectValue placeholder="Select location" />
@@ -351,7 +351,7 @@ export default function EmployeeManagement() {
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Company</FormLabel>
-                          <Select onValueChange={field.onChange} value={field.value}>
+                          <Select onValueChange={field.onChange} value={field.value ?? "none"}>
                             <FormControl>
                               <SelectTrigger data-testid="select-company">
                                 <SelectValue placeholder="Select company" />
@@ -379,7 +379,7 @@ export default function EmployeeManagement() {
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Reporting Manager</FormLabel>
-                          <Select onValueChange={field.onChange} value={field.value}>
+                          <Select onValueChange={field.onChange} value={field.value ?? "none"}>
                             <FormControl>
                               <SelectTrigger data-testid="select-manager">
                                 <SelectValue placeholder="Select reporting manager" />
@@ -404,7 +404,7 @@ export default function EmployeeManagement() {
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Status</FormLabel>
-                          <Select onValueChange={field.onChange} value={field.value}>
+                          <Select onValueChange={field.onChange} value={field.value ?? "active"}>
                             <FormControl>
                               <SelectTrigger data-testid="select-status">
                                 <SelectValue placeholder="Select status" />
@@ -534,7 +534,7 @@ export default function EmployeeManagement() {
                       disabled={createUserMutation.isPending || updateUserMutation.isPending}
                       data-testid="submit-user"
                     >
-                      {editingUser ? "Update Employee" : "Create Employee"}
+                      {editingUser ? "Update User" : "Create User"}
                     </Button>
                   </div>
                 </form>
