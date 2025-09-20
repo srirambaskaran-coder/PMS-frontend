@@ -121,9 +121,9 @@ export default function EmployeeManagement() {
       code: "",
       designation: "",
       mobileNumber: "",
-      locationId: "",
-      companyId: "",
-      reportingManagerId: "",
+      locationId: "none",
+      companyId: "none",
+      reportingManagerId: "none",
       role: "employee",
       roles: ["employee"],
       status: "active",
@@ -133,10 +133,18 @@ export default function EmployeeManagement() {
   });
 
   const onSubmit = (data: InsertUser) => {
+    // Convert "none" placeholder values to null
+    const processedData = {
+      ...data,
+      locationId: data.locationId === "none" ? null : data.locationId,
+      companyId: data.companyId === "none" ? null : data.companyId,
+      reportingManagerId: data.reportingManagerId === "none" ? null : data.reportingManagerId,
+    };
+
     if (editingUser) {
-      updateUserMutation.mutate({ id: editingUser.id, userData: data });
+      updateUserMutation.mutate({ id: editingUser.id, userData: processedData });
     } else {
-      createUserMutation.mutate(data);
+      createUserMutation.mutate(processedData);
     }
   };
 
@@ -149,9 +157,9 @@ export default function EmployeeManagement() {
       code: user.code || "",
       designation: user.designation || "",
       mobileNumber: user.mobileNumber || "",
-      locationId: user.locationId || "",
-      companyId: user.companyId || "",
-      reportingManagerId: user.reportingManagerId || "",
+      locationId: user.locationId || "none",
+      companyId: user.companyId || "none",
+      reportingManagerId: user.reportingManagerId || "none",
       role: user.role || "employee",
       roles: (user as any).roles || [user.role] || ["employee"],
       status: user.status || "active",
@@ -184,9 +192,9 @@ export default function EmployeeManagement() {
       code: "",
       designation: "",
       mobileNumber: "",
-      locationId: "",
-      companyId: "",
-      reportingManagerId: "",
+      locationId: "none",
+      companyId: "none",
+      reportingManagerId: "none",
       role: "employee",
       roles: ["employee"],
       status: "active",
@@ -325,7 +333,7 @@ export default function EmployeeManagement() {
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              <SelectItem value="">No Location</SelectItem>
+                              <SelectItem value="none">No Location</SelectItem>
                               {locations.map((location: any) => (
                                 <SelectItem key={location.id} value={location.id}>
                                   {location.name} ({location.code})
@@ -350,7 +358,7 @@ export default function EmployeeManagement() {
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              <SelectItem value="">No Company</SelectItem>
+                              <SelectItem value="none">No Company</SelectItem>
                               {companies.map((company: any) => (
                                 <SelectItem key={company.id} value={company.id}>
                                   {company.name}
@@ -378,7 +386,7 @@ export default function EmployeeManagement() {
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              <SelectItem value="">No Manager</SelectItem>
+                              <SelectItem value="none">No Manager</SelectItem>
                               {users.filter((user: any) => user.id !== editingUser?.id).map((user: any) => (
                                 <SelectItem key={user.id} value={user.id}>
                                   {user.firstName} {user.lastName} ({user.email})
