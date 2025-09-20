@@ -465,12 +465,12 @@ export default function EmployeeManagement() {
                     />
                   </div>
 
-                  {/* Password fields - only for Super Admin and in edit mode */}
-                  {isSuperAdmin && editingUser && (
+                  {/* Password fields - only for Super Admin */}
+                  {isSuperAdmin && (
                     <div className="border-t pt-4">
                       <div className="flex items-center gap-2 mb-4">
                         <Key className="h-4 w-4" />
-                        <h3 className="text-lg font-medium">Change Password</h3>
+                        <h3 className="text-lg font-medium">{editingUser ? "Change Password" : "Set Password"}</h3>
                       </div>
                       <div className="grid grid-cols-2 gap-4">
                         <FormField
@@ -511,7 +511,10 @@ export default function EmployeeManagement() {
                         />
                       </div>
                       <p className="text-sm text-muted-foreground mt-2">
-                        Leave password fields empty if you don't want to change the password.
+                        {editingUser 
+                          ? "Leave password fields empty if you don't want to change the password."
+                          : "Set a password for the new user account."
+                        }
                       </p>
                     </div>
                   )}
