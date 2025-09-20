@@ -764,6 +764,87 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Settings routes - Change password and Email Service configuration
+  app.post('/api/settings/change-password', isAuthenticated, requireRoles(['super_admin', 'admin']), async (req, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { currentPassword, newPassword } = req.body;
+
+      if (!currentPassword || !newPassword) {
+        return res.status(400).json({ message: "Current password and new password are required" });
+      }
+
+      if (newPassword.length < 6) {
+        return res.status(400).json({ message: "New password must be at least 6 characters long" });
+      }
+
+      await storage.changePassword(userId, currentPassword, newPassword);
+      res.json({ message: "Password changed successfully" });
+    } catch (error: any) {
+      console.error("Error changing password:", error);
+      if (error.message === 'User not found' || error.message === 'Current password is incorrect') {
+        return res.status(400).json({ message: error.message });
+      }
+      res.status(500).json({ message: "Failed to change password" });
+    }
+  });
+
+  app.get('/api/settings/email', isAuthenticated, requireRoles(['admin']), async (req, res) => {
+    try {
+      const config = await storage.getEmailConfig();
+      if (config) {
+        // Remove sensitive password field from response
+        const { password, ...safeConfig } = config;
+        res.json(safeConfig);
+      } else {
+        res.json(null);
+      }
+    } catch (error) {
+      console.error("Error fetching email settings:", error);
+      res.status(500).json({ message: "Failed to fetch email settings" });
+    }
+  });
+
+  app.post('/api/settings/email', isAuthenticated, requireRoles(['admin']), async (req, res) => {
+    try {
+      const { host, port, username, password, secure, fromEmail, fromName } = req.body;
+      
+      const emailConfigData = {
+        host,
+        port: parseInt(port),
+        username,
+        password,
+        secure: Boolean(secure),
+        fromEmail,
+        fromName,
+        isActive: true,
+        updatedAt: new Date(),
+      };
+
+      // Check if config already exists
+      const existingConfig = await storage.getEmailConfig();
+      let result;
+      
+      if (existingConfig) {
+        // Update existing config
+        result = await storage.updateEmailConfig(existingConfig.id, emailConfigData);
+      } else {
+        // Create new config
+        result = await storage.createEmailConfig({
+          ...emailConfigData,
+          createdAt: new Date(),
+        });
+      }
+
+      // Remove password from response
+      const { password: _, ...safeResult } = result;
+      res.json(safeResult);
+    } catch (error) {
+      console.error("Error saving email settings:", error);
+      res.status(500).json({ message: "Failed to save email settings" });
+    }
+  });
+
   // Development endpoints for user seeding and testing
   // Development endpoints - only available in development environment
   if (process.env.NODE_ENV === 'development') {

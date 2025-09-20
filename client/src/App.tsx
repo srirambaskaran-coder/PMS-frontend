@@ -17,6 +17,7 @@ import PerformanceReviews from "@/pages/PerformanceReviews";
 import ReviewProgress from "@/pages/ReviewProgress";
 import Evaluations from "@/pages/Evaluations";
 import Meetings from "@/pages/Meetings";
+import Settings from "@/pages/Settings";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -36,7 +37,7 @@ function Router() {
           <Route path="/review-progress" component={ReviewProgress} />
           <Route path="/evaluations" component={Evaluations} />
           <Route path="/meetings" component={Meetings} />
-          <Route path="/settings" component={() => <div>Settings coming soon...</div>} />
+          <Route path="/settings" component={Settings} />
         </>
       )}
       <Route component={NotFound} />

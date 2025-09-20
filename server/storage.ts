@@ -106,6 +106,9 @@ export interface IStorage {
   createEmailConfig(config: InsertEmailConfig): Promise<EmailConfig>;
   updateEmailConfig(id: string, config: Partial<InsertEmailConfig>): Promise<EmailConfig>;
   
+  // Settings operations
+  changePassword(userId: string, currentPassword: string, newPassword: string): Promise<void>;
+  
   // Access token operations
   createAccessToken(token: InsertAccessToken): Promise<AccessToken>;
   getAccessToken(token: string): Promise<AccessToken | undefined>;
@@ -630,6 +633,38 @@ export class DatabaseStorage implements IStorage {
         eq(accessTokens.isActive, true)
       )
     ).orderBy(desc(accessTokens.createdAt));
+  }
+
+  // Settings operations
+  async changePassword(userId: string, currentPassword: string, newPassword: string): Promise<void> {
+    // Get the user to validate current password
+    const user = await this.getUser(userId);
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    // Verify the current password
+    if (!user.passwordHash) {
+      throw new Error('No password set for this account');
+    }
+
+    const isCurrentPasswordValid = await bcrypt.compare(currentPassword, user.passwordHash);
+    if (!isCurrentPasswordValid) {
+      throw new Error('Current password is incorrect');
+    }
+
+    // Hash the new password
+    const saltRounds = 12;
+    const newPasswordHash = await bcrypt.hash(newPassword, saltRounds);
+
+    // Update the password
+    await db
+      .update(users)
+      .set({ 
+        passwordHash: newPasswordHash, 
+        updatedAt: new Date() 
+      })
+      .where(eq(users.id, userId));
   }
 }
 
