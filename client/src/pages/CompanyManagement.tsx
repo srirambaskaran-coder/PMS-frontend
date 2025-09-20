@@ -101,6 +101,7 @@ export default function CompanyManagement() {
       contactNumber: "",
       gstNumber: "",
       logoUrl: "",
+      url: "",
       status: "active",
     },
   });
@@ -123,6 +124,7 @@ export default function CompanyManagement() {
       contactNumber: company.contactNumber || "",
       gstNumber: company.gstNumber || "",
       logoUrl: company.logoUrl || "",
+      url: company.url || "",
       status: company.status || "active",
     });
   };
@@ -143,6 +145,7 @@ export default function CompanyManagement() {
       contactNumber: "",
       gstNumber: "",
       logoUrl: "",
+      url: "",
       status: "active",
     });
   };
@@ -228,6 +231,20 @@ export default function CompanyManagement() {
                         <FormLabel>Address</FormLabel>
                         <FormControl>
                           <Textarea {...field} data-testid="input-address" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="url"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Company URL</FormLabel>
+                        <FormControl>
+                          <Input type="url" {...field} placeholder="https://company.example.com" data-testid="input-company-url" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
