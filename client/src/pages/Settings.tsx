@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest } from "@/lib/queryClient";
@@ -458,6 +459,32 @@ export default function Settings() {
                         )}
                       />
                     </div>
+                    
+                    {/* SSL/TLS Security Option */}
+                    <FormField
+                      control={emailForm.control}
+                      name="secure"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                          <FormControl>
+                            <Checkbox
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                              data-testid="checkbox-secure-connection"
+                            />
+                          </FormControl>
+                          <div className="space-y-1 leading-none">
+                            <FormLabel>
+                              Use SSL/TLS (Secure Connection)
+                            </FormLabel>
+                            <p className="text-sm text-muted-foreground">
+                              Enable secure connection for SMTP. Usually enabled for port 465 or 587 with STARTTLS.
+                            </p>
+                          </div>
+                        </FormItem>
+                      )}
+                    />
+                    
                     <div className="flex gap-2">
                       <Button
                         type="submit"

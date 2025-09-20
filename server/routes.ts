@@ -2,6 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated, requireRoles } from "./replitAuth";
+import { z } from "zod";
 import { 
   insertUserSchema,
   insertCompanySchema,
@@ -809,8 +810,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/settings/email', isAuthenticated, requireRoles(['admin']), async (req, res) => {
     try {
-      // Validate request body with Zod schema
-      const validationResult = insertEmailConfigSchema.safeParse(req.body);
+      // Create API schema that matches frontend field names
+      const emailConfigApiSchema = z.object({
+        host: z.string().min(1, "SMTP host is required"),
+        port: z.number().min(1, "Port is required").max(65535, "Invalid port"),
+        username: z.string().min(1, "Username is required"),
+        password: z.string().min(1, "Password is required"),
+        secure: z.boolean(),
+        fromEmail: z.string().email("Valid email address is required"),
+        fromName: z.string().min(1, "From name is required"),
+      });
+
+      // Validate request body with API schema
+      const validationResult = emailConfigApiSchema.safeParse(req.body);
       if (!validationResult.success) {
         return res.status(400).json({ 
           message: "Invalid email configuration data",
@@ -822,12 +834,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const emailConfigData = {
         smtpHost: host,
-        smtpPort: parseInt(port),
+        smtpPort: port, // port is already a number from validation
         smtpUsername: username,
         smtpPassword: password,
         fromEmail,
         fromName,
-        isActive: true,
+        isActive: true, // Keep as true for now, secure is for SSL/TLS
         updatedAt: new Date(),
       };
 
