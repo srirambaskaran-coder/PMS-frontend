@@ -1,5 +1,13 @@
-import { Bell, Plus } from "lucide-react";
+import { Bell, Plus, LogOut, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/hooks/useAuth";
 
 export function Header() {
@@ -8,6 +16,10 @@ export function Header() {
   const handleStartReview = () => {
     // TODO: Implement start review cycle modal
     console.log("Start review cycle");
+  };
+
+  const handleLogout = () => {
+    window.location.href = "/api/logout";
   };
 
   return (
@@ -41,6 +53,39 @@ export function Header() {
               Start Review Cycle
             </Button>
           )}
+
+          {/* User Profile */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" className="relative h-8 w-8 rounded-full" data-testid="user-profile-button">
+                <div className="w-8 h-8 bg-accent rounded-full flex items-center justify-center">
+                  <span className="text-accent-foreground text-sm font-medium">
+                    {(user as any)?.firstName?.[0]}{(user as any)?.lastName?.[0]}
+                  </span>
+                </div>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-56" align="end" forceMount>
+              <DropdownMenuLabel className="font-normal">
+                <div className="flex flex-col space-y-1">
+                  <p className="text-sm font-medium leading-none" data-testid="user-name-display">
+                    {(user as any)?.firstName} {(user as any)?.lastName}
+                  </p>
+                  <p className="text-xs leading-none text-muted-foreground capitalize" data-testid="user-email-display">
+                    {(user as any)?.email}
+                  </p>
+                  <p className="text-xs leading-none text-muted-foreground capitalize" data-testid="user-role-display">
+                    {(user as any)?.role?.replace('_', ' ')}
+                  </p>
+                </div>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={handleLogout} data-testid="logout-button">
+                <LogOut className="mr-2 h-4 w-4" />
+                <span>Sign out</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
     </header>
