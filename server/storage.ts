@@ -1079,12 +1079,13 @@ export class DatabaseStorage implements IStorage {
       .select({
         id: frequencyCalendarDetails.id,
         frequencyCalendarId: frequencyCalendarDetails.frequencyCalendarId,
-        name: frequencyCalendarDetails.name,
+        displayName: frequencyCalendarDetails.displayName,
         startDate: frequencyCalendarDetails.startDate,
         endDate: frequencyCalendarDetails.endDate,
         status: frequencyCalendarDetails.status,
         createdAt: frequencyCalendarDetails.createdAt,
         updatedAt: frequencyCalendarDetails.updatedAt,
+        createdById: frequencyCalendarDetails.createdById,
       })
       .from(frequencyCalendarDetails)
       .innerJoin(frequencyCalendars, eq(frequencyCalendarDetails.frequencyCalendarId, frequencyCalendars.id))
@@ -1102,12 +1103,13 @@ export class DatabaseStorage implements IStorage {
       .select({
         id: frequencyCalendarDetails.id,
         frequencyCalendarId: frequencyCalendarDetails.frequencyCalendarId,
-        name: frequencyCalendarDetails.name,
+        displayName: frequencyCalendarDetails.displayName,
         startDate: frequencyCalendarDetails.startDate,
         endDate: frequencyCalendarDetails.endDate,
         status: frequencyCalendarDetails.status,
         createdAt: frequencyCalendarDetails.createdAt,
         updatedAt: frequencyCalendarDetails.updatedAt,
+        createdById: frequencyCalendarDetails.createdById,
       })
       .from(frequencyCalendarDetails)
       .innerJoin(frequencyCalendars, eq(frequencyCalendarDetails.frequencyCalendarId, frequencyCalendars.id))
@@ -1129,8 +1131,7 @@ export class DatabaseStorage implements IStorage {
 
     const [newDetails] = await db.insert(frequencyCalendarDetails).values({
       ...details,
-      createdAt: new Date(),
-      updatedAt: new Date(),
+      createdById,
     }).returning();
     return newDetails;
   }

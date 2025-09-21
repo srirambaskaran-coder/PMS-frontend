@@ -350,7 +350,7 @@ export default function QuestionnaireTemplates() {
                                 </SelectTrigger>
                               </FormControl>
                               <SelectContent>
-                                <SelectItem value="">All Levels</SelectItem>
+                                <SelectItem value="all">All Levels</SelectItem>
                                 {levels.map((level: any) => (
                                   <SelectItem key={level.id} value={level.id}>
                                     {level.description} ({level.code})
@@ -375,7 +375,7 @@ export default function QuestionnaireTemplates() {
                                 </SelectTrigger>
                               </FormControl>
                               <SelectContent>
-                                <SelectItem value="">All Grades</SelectItem>
+                                <SelectItem value="all">All Grades</SelectItem>
                                 {grades.map((grade: any) => (
                                   <SelectItem key={grade.id} value={grade.id}>
                                     {grade.description} ({grade.code})
@@ -402,7 +402,7 @@ export default function QuestionnaireTemplates() {
                                 </SelectTrigger>
                               </FormControl>
                               <SelectContent>
-                                <SelectItem value="">All Locations</SelectItem>
+                                <SelectItem value="all">All Locations</SelectItem>
                                 {locations.map((location: any) => (
                                   <SelectItem key={location.id} value={location.id}>
                                     {location.name} ({location.code})
@@ -548,7 +548,7 @@ export default function QuestionnaireTemplates() {
                   <SelectValue placeholder="All Roles" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Roles</SelectItem>
+                  <SelectItem value="all">All Roles</SelectItem>
                   <SelectItem value="employee">Employee</SelectItem>
                   <SelectItem value="manager">Manager</SelectItem>
                 </SelectContent>
