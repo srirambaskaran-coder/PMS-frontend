@@ -143,6 +143,13 @@ export interface IStorage {
   createLevel(level: InsertLevel, createdById: string): Promise<Level>;
   updateLevel(id: string, level: Partial<InsertLevel>, createdById: string): Promise<Level>;
   deleteLevel(id: string, createdById: string): Promise<void>;
+  
+  // Grade operations - Administrator isolated
+  getGrades(createdById: string): Promise<Grade[]>;
+  getGrade(id: string, createdById: string): Promise<Grade | undefined>;
+  createGrade(grade: InsertGrade, createdById: string): Promise<Grade>;
+  updateGrade(id: string, grade: Partial<InsertGrade>, createdById: string): Promise<Grade>;
+  deleteGrade(id: string, createdById: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -764,6 +771,72 @@ export class DatabaseStorage implements IStorage {
     
     if (result.rowCount === 0) {
       throw new Error('Level not found or access denied');
+    }
+  }
+
+  // Grade operations - Administrator isolated
+  async getGrades(createdById: string): Promise<Grade[]> {
+    return await db.select().from(grades).where(
+      and(
+        eq(grades.createdById, createdById),
+        eq(grades.status, 'active')
+      )
+    ).orderBy(asc(grades.code));
+  }
+
+  async getGrade(id: string, createdById: string): Promise<Grade | undefined> {
+    const [grade] = await db.select().from(grades).where(
+      and(
+        eq(grades.id, id),
+        eq(grades.createdById, createdById)
+      )
+    );
+    return grade;
+  }
+
+  async createGrade(grade: InsertGrade, createdById: string): Promise<Grade> {
+    const [newGrade] = await db.insert(grades).values({
+      ...grade,
+      createdById,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }).returning();
+    return newGrade;
+  }
+
+  async updateGrade(id: string, grade: Partial<InsertGrade>, createdById: string): Promise<Grade> {
+    const [updatedGrade] = await db
+      .update(grades)
+      .set({ 
+        ...grade, 
+        updatedAt: new Date() 
+      })
+      .where(
+        and(
+          eq(grades.id, id),
+          eq(grades.createdById, createdById)
+        )
+      )
+      .returning();
+    
+    if (!updatedGrade) {
+      throw new Error('Grade not found or access denied');
+    }
+    return updatedGrade;
+  }
+
+  async deleteGrade(id: string, createdById: string): Promise<void> {
+    const result = await db
+      .delete(grades)
+      .where(
+        and(
+          eq(grades.id, id),
+          eq(grades.createdById, createdById)
+        )
+      );
+    
+    if (result.rowCount === 0) {
+      throw new Error('Grade not found or access denied');
     }
   }
 }

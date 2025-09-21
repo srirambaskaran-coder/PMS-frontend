@@ -13,6 +13,7 @@ import {
   insertEmailTemplateSchema,
   insertEmailConfigSchema,
   insertLevelSchema,
+  insertGradeSchema,
   updateUserSchema,
   passwordUpdateSchema,
   type SafeUser,
@@ -918,8 +919,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Level not found" });
       }
       
-      const levelData = insertLevelSchema.partial().parse(req.body);
-      const level = await storage.updateLevel(id, levelData, createdById);
+      // Parse and sanitize the request body to prevent ownership changes
+      const { id: _id, createdById: _createdById, createdAt: _createdAt, ...safeLevelData } = insertLevelSchema.partial().parse(req.body);
+      const level = await storage.updateLevel(id, safeLevelData, createdById);
       res.json(level);
     } catch (error) {
       console.error("Error updating level:", error);
@@ -946,6 +948,91 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error deleting level:", error);
       res.status(500).json({ message: "Failed to delete level" });
+    }
+  });
+
+  // Grade management routes - Administrator isolated
+  app.get('/api/grades', isAuthenticated, requireRoles(['admin']), async (req: any, res) => {
+    try {
+      const createdById = req.user.claims.sub;
+      const grades = await storage.getGrades(createdById);
+      res.json(grades);
+    } catch (error) {
+      console.error("Error fetching grades:", error);
+      res.status(500).json({ message: "Failed to fetch grades" });
+    }
+  });
+
+  app.get('/api/grades/:id', isAuthenticated, requireRoles(['admin']), async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const createdById = req.user.claims.sub;
+      const grade = await storage.getGrade(id, createdById);
+      if (!grade) {
+        return res.status(404).json({ message: "Grade not found" });
+      }
+      res.json(grade);
+    } catch (error) {
+      console.error("Error fetching grade:", error);
+      res.status(500).json({ message: "Failed to fetch grade" });
+    }
+  });
+
+  app.post('/api/grades', isAuthenticated, requireRoles(['admin']), async (req: any, res) => {
+    try {
+      const gradeData = insertGradeSchema.parse(req.body);
+      const createdById = req.user.claims.sub;
+      const grade = await storage.createGrade(gradeData, createdById);
+      res.status(201).json(grade);
+    } catch (error) {
+      console.error("Error creating grade:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid grade data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to create grade" });
+    }
+  });
+
+  app.put('/api/grades/:id', isAuthenticated, requireRoles(['admin']), async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const createdById = req.user.claims.sub;
+      
+      // Check if grade exists and belongs to the administrator
+      const existingGrade = await storage.getGrade(id, createdById);
+      if (!existingGrade) {
+        return res.status(404).json({ message: "Grade not found" });
+      }
+      
+      // Parse and sanitize the request body to prevent ownership changes
+      const { id: _id, createdById: _createdById, createdAt: _createdAt, ...safeGradeData } = insertGradeSchema.partial().parse(req.body);
+      const grade = await storage.updateGrade(id, safeGradeData, createdById);
+      res.json(grade);
+    } catch (error) {
+      console.error("Error updating grade:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid grade data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to update grade" });
+    }
+  });
+
+  app.delete('/api/grades/:id', isAuthenticated, requireRoles(['admin']), async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const createdById = req.user.claims.sub;
+      
+      // Check if grade exists and belongs to the administrator
+      const existingGrade = await storage.getGrade(id, createdById);
+      if (!existingGrade) {
+        return res.status(404).json({ message: "Grade not found" });
+      }
+      
+      await storage.deleteGrade(id, createdById);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting grade:", error);
+      res.status(500).json({ message: "Failed to delete grade" });
     }
   });
 
