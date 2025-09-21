@@ -14,6 +14,7 @@ import {
   insertEmailConfigSchema,
   insertLevelSchema,
   insertGradeSchema,
+  insertAppraisalCycleSchema,
   updateUserSchema,
   passwordUpdateSchema,
   type SafeUser,
@@ -1033,6 +1034,91 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error deleting grade:", error);
       res.status(500).json({ message: "Failed to delete grade" });
+    }
+  });
+
+  // Appraisal Cycle management routes - Administrator isolated
+  app.get('/api/appraisal-cycles', isAuthenticated, requireRoles(['admin']), async (req: any, res) => {
+    try {
+      const createdById = req.user.claims.sub;
+      const cycles = await storage.getAppraisalCycles(createdById);
+      res.json(cycles);
+    } catch (error) {
+      console.error("Error fetching appraisal cycles:", error);
+      res.status(500).json({ message: "Failed to fetch appraisal cycles" });
+    }
+  });
+
+  app.get('/api/appraisal-cycles/:id', isAuthenticated, requireRoles(['admin']), async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const createdById = req.user.claims.sub;
+      const cycle = await storage.getAppraisalCycle(id, createdById);
+      if (!cycle) {
+        return res.status(404).json({ message: "Appraisal cycle not found" });
+      }
+      res.json(cycle);
+    } catch (error) {
+      console.error("Error fetching appraisal cycle:", error);
+      res.status(500).json({ message: "Failed to fetch appraisal cycle" });
+    }
+  });
+
+  app.post('/api/appraisal-cycles', isAuthenticated, requireRoles(['admin']), async (req: any, res) => {
+    try {
+      const cycleData = insertAppraisalCycleSchema.parse(req.body);
+      const createdById = req.user.claims.sub;
+      const cycle = await storage.createAppraisalCycle(cycleData, createdById);
+      res.status(201).json(cycle);
+    } catch (error) {
+      console.error("Error creating appraisal cycle:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid appraisal cycle data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to create appraisal cycle" });
+    }
+  });
+
+  app.put('/api/appraisal-cycles/:id', isAuthenticated, requireRoles(['admin']), async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const createdById = req.user.claims.sub;
+      
+      // Check if appraisal cycle exists and belongs to the administrator
+      const existingCycle = await storage.getAppraisalCycle(id, createdById);
+      if (!existingCycle) {
+        return res.status(404).json({ message: "Appraisal cycle not found" });
+      }
+      
+      // Parse and sanitize the request body to prevent ownership changes
+      const { id: _id, createdById: _createdById, createdAt: _createdAt, ...safeCycleData } = insertAppraisalCycleSchema.partial().parse(req.body);
+      const cycle = await storage.updateAppraisalCycle(id, safeCycleData, createdById);
+      res.json(cycle);
+    } catch (error) {
+      console.error("Error updating appraisal cycle:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid appraisal cycle data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to update appraisal cycle" });
+    }
+  });
+
+  app.delete('/api/appraisal-cycles/:id', isAuthenticated, requireRoles(['admin']), async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const createdById = req.user.claims.sub;
+      
+      // Check if appraisal cycle exists and belongs to the administrator
+      const existingCycle = await storage.getAppraisalCycle(id, createdById);
+      if (!existingCycle) {
+        return res.status(404).json({ message: "Appraisal cycle not found" });
+      }
+      
+      await storage.deleteAppraisalCycle(id, createdById);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting appraisal cycle:", error);
+      res.status(500).json({ message: "Failed to delete appraisal cycle" });
     }
   });
 

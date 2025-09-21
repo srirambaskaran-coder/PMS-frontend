@@ -150,6 +150,13 @@ export interface IStorage {
   createGrade(grade: InsertGrade, createdById: string): Promise<Grade>;
   updateGrade(id: string, grade: Partial<InsertGrade>, createdById: string): Promise<Grade>;
   deleteGrade(id: string, createdById: string): Promise<void>;
+  
+  // Appraisal Cycle operations - Administrator isolated
+  getAppraisalCycles(createdById: string): Promise<AppraisalCycle[]>;
+  getAppraisalCycle(id: string, createdById: string): Promise<AppraisalCycle | undefined>;
+  createAppraisalCycle(cycle: InsertAppraisalCycle, createdById: string): Promise<AppraisalCycle>;
+  updateAppraisalCycle(id: string, cycle: Partial<InsertAppraisalCycle>, createdById: string): Promise<AppraisalCycle>;
+  deleteAppraisalCycle(id: string, createdById: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -837,6 +844,72 @@ export class DatabaseStorage implements IStorage {
     
     if (result.rowCount === 0) {
       throw new Error('Grade not found or access denied');
+    }
+  }
+
+  // Appraisal Cycle operations - Administrator isolated
+  async getAppraisalCycles(createdById: string): Promise<AppraisalCycle[]> {
+    return await db.select().from(appraisalCycles).where(
+      and(
+        eq(appraisalCycles.createdById, createdById),
+        eq(appraisalCycles.status, 'active')
+      )
+    ).orderBy(asc(appraisalCycles.code));
+  }
+
+  async getAppraisalCycle(id: string, createdById: string): Promise<AppraisalCycle | undefined> {
+    const [cycle] = await db.select().from(appraisalCycles).where(
+      and(
+        eq(appraisalCycles.id, id),
+        eq(appraisalCycles.createdById, createdById)
+      )
+    );
+    return cycle;
+  }
+
+  async createAppraisalCycle(cycle: InsertAppraisalCycle, createdById: string): Promise<AppraisalCycle> {
+    const [newCycle] = await db.insert(appraisalCycles).values({
+      ...cycle,
+      createdById,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }).returning();
+    return newCycle;
+  }
+
+  async updateAppraisalCycle(id: string, cycle: Partial<InsertAppraisalCycle>, createdById: string): Promise<AppraisalCycle> {
+    const [updatedCycle] = await db
+      .update(appraisalCycles)
+      .set({ 
+        ...cycle, 
+        updatedAt: new Date() 
+      })
+      .where(
+        and(
+          eq(appraisalCycles.id, id),
+          eq(appraisalCycles.createdById, createdById)
+        )
+      )
+      .returning();
+    
+    if (!updatedCycle) {
+      throw new Error('Appraisal Cycle not found or access denied');
+    }
+    return updatedCycle;
+  }
+
+  async deleteAppraisalCycle(id: string, createdById: string): Promise<void> {
+    const result = await db
+      .delete(appraisalCycles)
+      .where(
+        and(
+          eq(appraisalCycles.id, id),
+          eq(appraisalCycles.createdById, createdById)
+        )
+      );
+    
+    if (result.rowCount === 0) {
+      throw new Error('Appraisal Cycle not found or access denied');
     }
   }
 }
