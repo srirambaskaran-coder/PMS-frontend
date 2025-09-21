@@ -19,6 +19,7 @@ import GradeManagement from "@/pages/GradeManagement";
 import AppraisalCycleManagement from "@/pages/AppraisalCycleManagement";
 import ReviewFrequencyManagement from "@/pages/ReviewFrequencyManagement";
 import FrequencyCalendarManagement from "@/pages/FrequencyCalendarManagement";
+import FrequencyCalendarDetailsManagement from "@/pages/FrequencyCalendarDetailsManagement";
 import PerformanceReviews from "@/pages/PerformanceReviews";
 import ReviewProgress from "@/pages/ReviewProgress";
 import Evaluations from "@/pages/Evaluations";
@@ -45,6 +46,7 @@ function Router() {
           <Route path="/appraisal-cycles" component={AppraisalCycleManagement} />
           <Route path="/review-frequencies" component={ReviewFrequencyManagement} />
           <Route path="/frequency-calendars" component={FrequencyCalendarManagement} />
+          <Route path="/frequency-calendar-details" component={FrequencyCalendarDetailsManagement} />
           <Route path="/performance-reviews" component={PerformanceReviews} />
           <Route path="/review-progress" component={ReviewProgress} />
           <Route path="/evaluations" component={Evaluations} />
