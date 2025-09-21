@@ -595,6 +595,9 @@ export const insertFrequencyCalendarDetailsSchema = createInsertSchema(frequency
   createdAt: true,
   updatedAt: true,
   createdById: true,
+}).extend({
+  startDate: z.preprocess((val) => new Date(val as string), z.date()),
+  endDate: z.preprocess((val) => new Date(val as string), z.date()),
 });
 
 export const insertPublishQuestionnaireSchema = createInsertSchema(publishQuestionnaires).omit({
