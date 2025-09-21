@@ -15,6 +15,7 @@ import LocationManagement from "@/pages/LocationManagement";
 import QuestionnaireTemplates from "@/pages/QuestionnaireTemplates";
 import PublishQuestionnaires from "@/pages/PublishQuestionnaires";
 import LevelManagement from "@/pages/LevelManagement";
+import GradeManagement from "@/pages/GradeManagement";
 import PerformanceReviews from "@/pages/PerformanceReviews";
 import ReviewProgress from "@/pages/ReviewProgress";
 import Evaluations from "@/pages/Evaluations";
@@ -37,6 +38,7 @@ function Router() {
           <Route path="/questionnaires" component={QuestionnaireTemplates} />
           <Route path="/publish-questionnaires" component={PublishQuestionnaires} />
           <Route path="/levels" component={LevelManagement} />
+          <Route path="/grades" component={GradeManagement} />
           <Route path="/performance-reviews" component={PerformanceReviews} />
           <Route path="/review-progress" component={ReviewProgress} />
           <Route path="/evaluations" component={Evaluations} />
