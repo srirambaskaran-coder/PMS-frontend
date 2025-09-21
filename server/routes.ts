@@ -15,6 +15,7 @@ import {
   insertLevelSchema,
   insertGradeSchema,
   insertAppraisalCycleSchema,
+  insertReviewFrequencySchema,
   updateUserSchema,
   passwordUpdateSchema,
   type SafeUser,
@@ -1119,6 +1120,91 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error deleting appraisal cycle:", error);
       res.status(500).json({ message: "Failed to delete appraisal cycle" });
+    }
+  });
+
+  // Review Frequency management routes - Administrator isolated
+  app.get('/api/review-frequencies', isAuthenticated, requireRoles(['admin']), async (req: any, res) => {
+    try {
+      const createdById = req.user.claims.sub;
+      const frequencies = await storage.getReviewFrequencies(createdById);
+      res.json(frequencies);
+    } catch (error) {
+      console.error("Error fetching review frequencies:", error);
+      res.status(500).json({ message: "Failed to fetch review frequencies" });
+    }
+  });
+
+  app.get('/api/review-frequencies/:id', isAuthenticated, requireRoles(['admin']), async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const createdById = req.user.claims.sub;
+      const frequency = await storage.getReviewFrequency(id, createdById);
+      if (!frequency) {
+        return res.status(404).json({ message: "Review frequency not found" });
+      }
+      res.json(frequency);
+    } catch (error) {
+      console.error("Error fetching review frequency:", error);
+      res.status(500).json({ message: "Failed to fetch review frequency" });
+    }
+  });
+
+  app.post('/api/review-frequencies', isAuthenticated, requireRoles(['admin']), async (req: any, res) => {
+    try {
+      const frequencyData = insertReviewFrequencySchema.parse(req.body);
+      const createdById = req.user.claims.sub;
+      const frequency = await storage.createReviewFrequency(frequencyData, createdById);
+      res.status(201).json(frequency);
+    } catch (error) {
+      console.error("Error creating review frequency:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid review frequency data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to create review frequency" });
+    }
+  });
+
+  app.put('/api/review-frequencies/:id', isAuthenticated, requireRoles(['admin']), async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const createdById = req.user.claims.sub;
+      
+      // Check if review frequency exists and belongs to the administrator
+      const existingFrequency = await storage.getReviewFrequency(id, createdById);
+      if (!existingFrequency) {
+        return res.status(404).json({ message: "Review frequency not found" });
+      }
+      
+      // Parse and sanitize the request body to prevent ownership changes
+      const { id: _id, createdById: _createdById, createdAt: _createdAt, ...safeFrequencyData } = insertReviewFrequencySchema.partial().parse(req.body);
+      const frequency = await storage.updateReviewFrequency(id, safeFrequencyData, createdById);
+      res.json(frequency);
+    } catch (error) {
+      console.error("Error updating review frequency:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid review frequency data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to update review frequency" });
+    }
+  });
+
+  app.delete('/api/review-frequencies/:id', isAuthenticated, requireRoles(['admin']), async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const createdById = req.user.claims.sub;
+      
+      // Check if review frequency exists and belongs to the administrator
+      const existingFrequency = await storage.getReviewFrequency(id, createdById);
+      if (!existingFrequency) {
+        return res.status(404).json({ message: "Review frequency not found" });
+      }
+      
+      await storage.deleteReviewFrequency(id, createdById);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting review frequency:", error);
+      res.status(500).json({ message: "Failed to delete review frequency" });
     }
   });
 

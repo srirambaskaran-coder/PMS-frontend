@@ -157,6 +157,13 @@ export interface IStorage {
   createAppraisalCycle(cycle: InsertAppraisalCycle, createdById: string): Promise<AppraisalCycle>;
   updateAppraisalCycle(id: string, cycle: Partial<InsertAppraisalCycle>, createdById: string): Promise<AppraisalCycle>;
   deleteAppraisalCycle(id: string, createdById: string): Promise<void>;
+  
+  // Review Frequency operations - Administrator isolated
+  getReviewFrequencies(createdById: string): Promise<ReviewFrequency[]>;
+  getReviewFrequency(id: string, createdById: string): Promise<ReviewFrequency | undefined>;
+  createReviewFrequency(frequency: InsertReviewFrequency, createdById: string): Promise<ReviewFrequency>;
+  updateReviewFrequency(id: string, frequency: Partial<InsertReviewFrequency>, createdById: string): Promise<ReviewFrequency>;
+  deleteReviewFrequency(id: string, createdById: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -910,6 +917,72 @@ export class DatabaseStorage implements IStorage {
     
     if (result.rowCount === 0) {
       throw new Error('Appraisal Cycle not found or access denied');
+    }
+  }
+
+  // Review Frequency operations - Administrator isolated
+  async getReviewFrequencies(createdById: string): Promise<ReviewFrequency[]> {
+    return await db.select().from(reviewFrequencies).where(
+      and(
+        eq(reviewFrequencies.createdById, createdById),
+        eq(reviewFrequencies.status, 'active')
+      )
+    ).orderBy(asc(reviewFrequencies.code));
+  }
+
+  async getReviewFrequency(id: string, createdById: string): Promise<ReviewFrequency | undefined> {
+    const [frequency] = await db.select().from(reviewFrequencies).where(
+      and(
+        eq(reviewFrequencies.id, id),
+        eq(reviewFrequencies.createdById, createdById)
+      )
+    );
+    return frequency;
+  }
+
+  async createReviewFrequency(frequency: InsertReviewFrequency, createdById: string): Promise<ReviewFrequency> {
+    const [newFrequency] = await db.insert(reviewFrequencies).values({
+      ...frequency,
+      createdById,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }).returning();
+    return newFrequency;
+  }
+
+  async updateReviewFrequency(id: string, frequency: Partial<InsertReviewFrequency>, createdById: string): Promise<ReviewFrequency> {
+    const [updatedFrequency] = await db
+      .update(reviewFrequencies)
+      .set({ 
+        ...frequency, 
+        updatedAt: new Date() 
+      })
+      .where(
+        and(
+          eq(reviewFrequencies.id, id),
+          eq(reviewFrequencies.createdById, createdById)
+        )
+      )
+      .returning();
+    
+    if (!updatedFrequency) {
+      throw new Error('Review Frequency not found or access denied');
+    }
+    return updatedFrequency;
+  }
+
+  async deleteReviewFrequency(id: string, createdById: string): Promise<void> {
+    const result = await db
+      .delete(reviewFrequencies)
+      .where(
+        and(
+          eq(reviewFrequencies.id, id),
+          eq(reviewFrequencies.createdById, createdById)
+        )
+      );
+    
+    if (result.rowCount === 0) {
+      throw new Error('Review Frequency not found or access denied');
     }
   }
 }
