@@ -459,13 +459,14 @@ export default function QuestionnaireTemplates() {
                                 placeholder="Enter question text..."
                                 value={question.text}
                                 onChange={(e) => updateQuestion(question.id, 'text', e.target.value)}
+                                data-testid={`input-question-text-${question.id}`}
                               />
                             </div>
                             <Select
                               value={question.type}
                               onValueChange={(value) => updateQuestion(question.id, 'type', value)}
                             >
-                              <SelectTrigger>
+                              <SelectTrigger data-testid={`select-question-type-${question.id}`}>
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
@@ -474,6 +475,20 @@ export default function QuestionnaireTemplates() {
                                 <SelectItem value="rating">Rating (1-5)</SelectItem>
                               </SelectContent>
                             </Select>
+                          </div>
+                          <div className="flex items-center space-x-2 mt-3">
+                            <Checkbox
+                              id={`required-${question.id}`}
+                              checked={question.required}
+                              onCheckedChange={(checked) => updateQuestion(question.id, 'required', checked)}
+                              data-testid={`checkbox-question-required-${question.id}`}
+                            />
+                            <label 
+                              htmlFor={`required-${question.id}`}
+                              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                            >
+                              Required
+                            </label>
                           </div>
                         </div>
                       </Card>
