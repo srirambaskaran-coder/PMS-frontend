@@ -314,33 +314,28 @@ export default function AppraisalGroups() {
     }
 
     // Location filter
-    if (appliedFilters.location) {
-      const locationQuery = appliedFilters.location.toLowerCase();
-      if (!(user.locationId ?? '').toLowerCase().includes(locationQuery)) return false;
+    if (appliedFilters.location.length > 0) {
+      if (!appliedFilters.location.includes(user.locationId ?? '')) return false;
     }
 
     // Department filter
-    if (appliedFilters.department) {
-      const departmentQuery = appliedFilters.department.toLowerCase();
-      if (!(user.department ?? '').toLowerCase().includes(departmentQuery)) return false;
+    if (appliedFilters.department.length > 0) {
+      if (!appliedFilters.department.includes(user.department ?? '')) return false;
     }
 
     // Level filter
-    if (appliedFilters.level) {
-      const levelQuery = appliedFilters.level.toLowerCase();
-      if (!(user.levelId ?? '').toLowerCase().includes(levelQuery)) return false;
+    if (appliedFilters.level.length > 0) {
+      if (!appliedFilters.level.includes(user.levelId ?? '')) return false;
     }
 
     // Grade filter
-    if (appliedFilters.grade) {
-      const gradeQuery = appliedFilters.grade.toLowerCase();
-      if (!(user.gradeId ?? '').toLowerCase().includes(gradeQuery)) return false;
+    if (appliedFilters.grade.length > 0) {
+      if (!appliedFilters.grade.includes(user.gradeId ?? '')) return false;
     }
 
     // Reporting Manager filter
-    if (appliedFilters.reportingManager) {
-      const reportingManagerQuery = appliedFilters.reportingManager.toLowerCase();
-      if (!(user.reportingManagerId ?? '').toLowerCase().includes(reportingManagerQuery)) return false;
+    if (appliedFilters.reportingManager.length > 0) {
+      if (!appliedFilters.reportingManager.includes(user.reportingManagerId ?? '')) return false;
     }
 
     return true;
@@ -748,7 +743,12 @@ export default function AppraisalGroups() {
               
               {availableEmployees.length === 0 && (
                 <div className="text-center py-8 text-muted-foreground">
-                  {Object.values(appliedFilters).some(filter => filter.trim()) 
+                  {(appliedFilters.nameOrCode.trim() || 
+                    appliedFilters.location.length > 0 || 
+                    appliedFilters.department.length > 0 ||
+                    appliedFilters.level.length > 0 ||
+                    appliedFilters.grade.length > 0 ||
+                    appliedFilters.reportingManager.length > 0)
                     ? "No employees found matching your filter criteria."
                     : "All employees are already in this group."
                   }
