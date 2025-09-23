@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -46,11 +46,19 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { RoleGuard } from "@/components/RoleGuard";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import type { SafeUser, AppraisalGroup, QuestionnaireTemplate, FrequencyCalendar, AppraisalCycle } from "@shared/schema";
+import type { SafeUser, AppraisalGroup, QuestionnaireTemplate, FrequencyCalendar, FrequencyCalendarDetails, AppraisalCycle } from "@shared/schema";
 
 interface AppraisalGroupWithMembers extends AppraisalGroup {
   members: SafeUser[];
 }
+
+// Calendar detail timing configuration
+const calendarDetailTimingSchema = z.object({
+  detailId: z.string(),
+  daysToInitiate: z.coerce.number().min(0).max(365).default(0),
+  daysToClose: z.coerce.number().min(1).max(365).default(30),
+  numberOfReminders: z.coerce.number().min(1).max(10).default(3),
+});
 
 // Form validation schema
 const initiateAppraisalSchema = z.object({
@@ -58,6 +66,8 @@ const initiateAppraisalSchema = z.object({
   questionnaireTemplateId: z.string().optional(),
   documentFile: z.any().optional(), // File upload
   frequencyCalendarId: z.string().optional(),
+  calendarDetailTimings: z.array(calendarDetailTimingSchema).default([]), // Per-detail timing config
+  // Keep global settings as fallback when no calendar is selected
   daysToInitiate: z.coerce.number().min(0).max(365).default(0),
   daysToClose: z.coerce.number().min(1).max(365).default(30),
   numberOfReminders: z.coerce.number().min(1).max(10).default(3),
@@ -78,6 +88,7 @@ const initiateAppraisalSchema = z.object({
   path: ["appraisalType"]
 });
 
+type CalendarDetailTiming = z.infer<typeof calendarDetailTimingSchema>;
 type InitiateAppraisalForm = z.infer<typeof initiateAppraisalSchema>;
 
 export default function InitiateAppraisal() {
@@ -85,6 +96,7 @@ export default function InitiateAppraisal() {
   const [selectedGroup, setSelectedGroup] = useState<AppraisalGroupWithMembers | null>(null);
   const [isInitiateFormOpen, setIsInitiateFormOpen] = useState(false);
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [selectedCalendarId, setSelectedCalendarId] = useState<string | null>(null);
   const { toast } = useToast();
 
   // Form initialization
@@ -92,6 +104,7 @@ export default function InitiateAppraisal() {
     resolver: zodResolver(initiateAppraisalSchema),
     defaultValues: {
       appraisalType: 'questionnaire_based',
+      calendarDetailTimings: [],
       daysToInitiate: 0,
       daysToClose: 30,
       numberOfReminders: 3,
@@ -115,6 +128,22 @@ export default function InitiateAppraisal() {
   // Fetch frequency calendars for dropdown
   const { data: frequencyCalendars = [] } = useQuery<FrequencyCalendar[]>({
     queryKey: ['/api/frequency-calendars'],
+  });
+
+  // Fetch calendar details when a calendar is selected
+  const { data: calendarDetails = [], isLoading: isLoadingDetails } = useQuery<FrequencyCalendarDetails[]>({
+    queryKey: ['/api/frequency-calendars', selectedCalendarId, 'details'],
+    queryFn: async () => {
+      if (!selectedCalendarId) return [];
+      const response = await fetch(`/api/frequency-calendars/${selectedCalendarId}/details`, {
+        credentials: 'include',
+      });
+      if (!response.ok) {
+        throw new Error('Failed to fetch calendar details');
+      }
+      return response.json();
+    },
+    enabled: !!selectedCalendarId,
   });
 
   // Mutation for initiating appraisal
@@ -164,7 +193,32 @@ export default function InitiateAppraisal() {
     setIsInitiateFormOpen(true);
     form.reset();
     setUploadedFile(null);
+    setSelectedCalendarId(null);
   };
+
+  // Handle frequency calendar selection
+  const handleCalendarSelection = (calendarId: string) => {
+    setSelectedCalendarId(calendarId);
+    form.setValue('frequencyCalendarId', calendarId);
+  };
+
+  // Initialize timing settings for calendar details
+  const initializeCalendarDetailTimings = (details: FrequencyCalendarDetails[]) => {
+    const timings: CalendarDetailTiming[] = details.map(detail => ({
+      detailId: detail.id,
+      daysToInitiate: 0,
+      daysToClose: 30,
+      numberOfReminders: 3,
+    }));
+    form.setValue('calendarDetailTimings', timings);
+  };
+
+  // Effect to initialize timings when calendar details are loaded
+  useEffect(() => {
+    if (calendarDetails.length > 0) {
+      initializeCalendarDetailTimings(calendarDetails);
+    }
+  }, [calendarDetails]);
 
   const onSubmit = (data: InitiateAppraisalForm) => {
     if (!selectedGroup) return;
@@ -474,7 +528,13 @@ export default function InitiateAppraisal() {
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Frequency Calendar</FormLabel>
-                          <Select onValueChange={field.onChange} value={field.value}>
+                          <Select 
+                            onValueChange={(value) => {
+                              field.onChange(value);
+                              handleCalendarSelection(value);
+                            }} 
+                            value={field.value}
+                          >
                             <FormControl>
                               <SelectTrigger data-testid="select-frequency-calendar">
                                 <SelectValue placeholder="Select frequency calendar (optional)" />
@@ -496,79 +556,202 @@ export default function InitiateAppraisal() {
                       )}
                     />
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <FormField
-                        control={form.control}
-                        name="daysToInitiate"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Days to Initiate</FormLabel>
-                            <FormControl>
-                              <Input
-                                type="number"
-                                min="0"
-                                max="365"
-                                placeholder="0"
-                                {...field}
-                                data-testid="input-days-to-initiate"
-                              />
-                            </FormControl>
-                            <FormDescription>
-                              Days after calendar period end
-                            </FormDescription>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
+                    {/* Show calendar details with timing configuration when a calendar is selected */}
+                    {selectedCalendarId && (
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                          <h5 className="text-md font-medium">Calendar Details Configuration</h5>
+                          {isLoadingDetails && (
+                            <div className="text-sm text-muted-foreground">Loading details...</div>
+                          )}
+                        </div>
+                        
+                        {calendarDetails.length > 0 && (
+                          <div className="space-y-4">
+                            <p className="text-sm text-muted-foreground">
+                              Configure timing settings for each calendar period:
+                            </p>
+                            
+                            {calendarDetails.map((detail, index) => (
+                              <Card key={detail.id} className="p-4">
+                                <div className="flex items-center justify-between mb-3">
+                                  <div>
+                                    <h6 className="font-medium">{detail.displayName}</h6>
+                                    <p className="text-sm text-muted-foreground">
+                                      {new Date(detail.startDate).toLocaleDateString()} - {new Date(detail.endDate).toLocaleDateString()}
+                                    </p>
+                                  </div>
+                                </div>
+                                
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                  <FormField
+                                    control={form.control}
+                                    name={`calendarDetailTimings.${index}.daysToInitiate`}
+                                    render={({ field }) => (
+                                      <FormItem>
+                                        <FormLabel>Days to Initiate</FormLabel>
+                                        <FormControl>
+                                          <Input
+                                            type="number"
+                                            min="0"
+                                            max="365"
+                                            placeholder="0"
+                                            {...field}
+                                            data-testid={`input-days-to-initiate-${detail.id}`}
+                                          />
+                                        </FormControl>
+                                        <FormDescription>
+                                          Days after calendar period end
+                                        </FormDescription>
+                                        <FormMessage />
+                                      </FormItem>
+                                    )}
+                                  />
 
-                      <FormField
-                        control={form.control}
-                        name="daysToClose"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Days to Close*</FormLabel>
-                            <FormControl>
-                              <Input
-                                type="number"
-                                min="1"
-                                max="365"
-                                placeholder="30"
-                                {...field}
-                                data-testid="input-days-to-close"
-                              />
-                            </FormControl>
-                            <FormDescription>
-                              Days after initiation to close
-                            </FormDescription>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
+                                  <FormField
+                                    control={form.control}
+                                    name={`calendarDetailTimings.${index}.daysToClose`}
+                                    render={({ field }) => (
+                                      <FormItem>
+                                        <FormLabel>Days to Close*</FormLabel>
+                                        <FormControl>
+                                          <Input
+                                            type="number"
+                                            min="1"
+                                            max="365"
+                                            placeholder="30"
+                                            {...field}
+                                            data-testid={`input-days-to-close-${detail.id}`}
+                                          />
+                                        </FormControl>
+                                        <FormDescription>
+                                          Days after calendar period end
+                                        </FormDescription>
+                                        <FormMessage />
+                                      </FormItem>
+                                    )}
+                                  />
 
-                      <FormField
-                        control={form.control}
-                        name="numberOfReminders"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Number of Reminders</FormLabel>
-                            <FormControl>
-                              <Input
-                                type="number"
-                                min="1"
-                                max="10"
-                                placeholder="3"
-                                {...field}
-                                data-testid="input-number-of-reminders"
-                              />
-                            </FormControl>
-                            <FormDescription>
-                              Automatic reminders (1-10)
-                            </FormDescription>
-                            <FormMessage />
-                          </FormItem>
+                                  <FormField
+                                    control={form.control}
+                                    name={`calendarDetailTimings.${index}.numberOfReminders`}
+                                    render={({ field }) => (
+                                      <FormItem>
+                                        <FormLabel>Number of Reminders</FormLabel>
+                                        <Select onValueChange={field.onChange} value={field.value?.toString()}>
+                                          <FormControl>
+                                            <SelectTrigger data-testid={`select-reminders-${detail.id}`}>
+                                              <SelectValue placeholder="Select" />
+                                            </SelectTrigger>
+                                          </FormControl>
+                                          <SelectContent>
+                                            {Array.from({length: 10}, (_, i) => i + 1).map((num) => (
+                                              <SelectItem key={num} value={num.toString()}>
+                                                {num} reminder{num > 1 ? 's' : ''}
+                                              </SelectItem>
+                                            ))}
+                                          </SelectContent>
+                                        </Select>
+                                        <FormDescription>
+                                          Automatic reminders (1-10)
+                                        </FormDescription>
+                                        <FormMessage />
+                                      </FormItem>
+                                    )}
+                                  />
+                                </div>
+                              </Card>
+                            ))}
+                          </div>
                         )}
-                      />
-                    </div>
+                        
+                        {calendarDetails.length === 0 && !isLoadingDetails && (
+                          <Card className="p-6">
+                            <div className="text-center text-muted-foreground">
+                              <Calendar className="h-8 w-8 mx-auto mb-2" />
+                              <p>No calendar details found for this frequency calendar.</p>
+                            </div>
+                          </Card>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Show global timing settings when no calendar is selected */}
+                    {!selectedCalendarId && (
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <FormField
+                          control={form.control}
+                          name="daysToInitiate"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Days to Initiate</FormLabel>
+                              <FormControl>
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  max="365"
+                                  placeholder="0"
+                                  {...field}
+                                  data-testid="input-days-to-initiate"
+                                />
+                              </FormControl>
+                              <FormDescription>
+                                Days after calendar period end
+                              </FormDescription>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={form.control}
+                          name="daysToClose"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Days to Close*</FormLabel>
+                              <FormControl>
+                                <Input
+                                  type="number"
+                                  min="1"
+                                  max="365"
+                                  placeholder="30"
+                                  {...field}
+                                  data-testid="input-days-to-close"
+                                />
+                              </FormControl>
+                              <FormDescription>
+                                Days after initiation to close
+                              </FormDescription>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={form.control}
+                          name="numberOfReminders"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Number of Reminders</FormLabel>
+                              <FormControl>
+                                <Input
+                                  type="number"
+                                  min="1"
+                                  max="10"
+                                  placeholder="3"
+                                  {...field}
+                                  data-testid="input-number-of-reminders"
+                                />
+                              </FormControl>
+                              <FormDescription>
+                                Automatic reminders (1-10)
+                              </FormDescription>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                    )}
                   </div>
 
                   <Separator />
