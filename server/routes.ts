@@ -356,6 +356,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post('/api/questionnaire-templates/:id/copy', isAuthenticated, requireRoles(['super_admin', 'admin', 'hr_manager']), async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const requestingUserId = req.user.claims.sub;
+      
+      const copiedTemplate = await storage.copyQuestionnaireTemplate(id, requestingUserId);
+      res.status(201).json(copiedTemplate);
+    } catch (error) {
+      console.error("Error copying questionnaire template:", error);
+      
+      // Handle authorization errors specifically
+      if (error instanceof Error && (error.message?.includes('Forbidden') || error.message?.includes('Template not found'))) {
+        return res.status(404).json({ message: error.message });
+      }
+      
+      res.status(500).json({ message: "Failed to copy questionnaire template" });
+    }
+  });
+
   // Review cycle routes
   app.get('/api/review-cycles', isAuthenticated, async (req, res) => {
     try {

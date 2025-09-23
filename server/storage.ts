@@ -587,6 +587,33 @@ export class DatabaseStorage implements IStorage {
     return newTemplate;
   }
 
+  async copyQuestionnaireTemplate(id: string, requestingUserId: string): Promise<QuestionnaireTemplate> {
+    // First, get the original template
+    const originalTemplate = await this.getQuestionnaireTemplate(id, requestingUserId);
+    if (!originalTemplate) {
+      throw new Error('Template not found');
+    }
+
+    // Create a copy with modified name and new creator
+    const copyData: InsertQuestionnaireTemplate = {
+      name: `${originalTemplate.name} (Copy)`,
+      description: originalTemplate.description,
+      targetRole: originalTemplate.targetRole,
+      applicableCategory: originalTemplate.applicableCategory,
+      applicableLevelId: originalTemplate.applicableLevelId,
+      applicableGradeId: originalTemplate.applicableGradeId,
+      applicableLocationId: originalTemplate.applicableLocationId,
+      sendOnMail: originalTemplate.sendOnMail,
+      questions: originalTemplate.questions,
+      year: originalTemplate.year,
+      status: originalTemplate.status,
+      createdById: requestingUserId, // Set the requesting user as the creator of the copy
+    };
+
+    const [copiedTemplate] = await db.insert(questionnaireTemplates).values(copyData).returning();
+    return copiedTemplate;
+  }
+
   async updateQuestionnaireTemplate(id: string, template: Partial<InsertQuestionnaireTemplate>, requestingUserId?: string): Promise<QuestionnaireTemplate> {
     // SECURITY: Company isolation - HR Managers only update templates from their company
     if (requestingUserId) {
