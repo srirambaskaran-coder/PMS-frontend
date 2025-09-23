@@ -37,11 +37,11 @@ interface CreateGroupFormData {
 
 interface EmployeeFilters {
   nameOrCode: string;
-  location: string;
-  department: string;
-  level: string;
-  grade: string;
-  reportingManager: string;
+  location: string[];
+  department: string[];
+  level: string[];
+  grade: string[];
+  reportingManager: string[];
 }
 
 export default function AppraisalGroups() {
@@ -49,20 +49,20 @@ export default function AppraisalGroups() {
   // Draft filters that user is typing (not yet applied)
   const [draftFilters, setDraftFilters] = useState<EmployeeFilters>({
     nameOrCode: "",
-    location: "",
-    department: "",
-    level: "",
-    grade: "",
-    reportingManager: "",
+    location: [],
+    department: [],
+    level: [],
+    grade: [],
+    reportingManager: [],
   });
   // Applied filters that actually control the results
   const [appliedFilters, setAppliedFilters] = useState<EmployeeFilters>({
     nameOrCode: "",
-    location: "",
-    department: "",
-    level: "",
-    grade: "",
-    reportingManager: "",
+    location: [],
+    department: [],
+    level: [],
+    grade: [],
+    reportingManager: [],
   });
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [editingGroup, setEditingGroup] = useState<AppraisalGroupWithMembers | null>(null);
@@ -173,19 +173,19 @@ export default function AppraisalGroups() {
       setSelectedGroupForEmployees(null);
       setDraftFilters({
         nameOrCode: "",
-        location: "",
-        department: "",
-        level: "",
-        grade: "",
-        reportingManager: "",
+        location: [],
+        department: [],
+        level: [],
+        grade: [],
+        reportingManager: [],
       });
       setAppliedFilters({
         nameOrCode: "",
-        location: "",
-        department: "",
-        level: "",
-        grade: "",
-        reportingManager: "",
+        location: [],
+        department: [],
+        level: [],
+        grade: [],
+        reportingManager: [],
       });
       toast({
         title: "Success",
@@ -675,11 +675,11 @@ export default function AppraisalGroups() {
                       // Clear both draft and applied filters
                       const emptyFilters = {
                         nameOrCode: "",
-                        location: "",
-                        department: "",
-                        level: "",
-                        grade: "",
-                        reportingManager: "",
+                        location: [],
+                        department: [],
+                        level: [],
+                        grade: [],
+                        reportingManager: [],
                       };
                       setDraftFilters(emptyFilters);
                       setAppliedFilters(emptyFilters);
@@ -769,19 +769,19 @@ export default function AppraisalGroups() {
                     setSelectedGroupForEmployees(null);
                     setDraftFilters({
                       nameOrCode: "",
-                      location: "",
-                      department: "",
-                      level: "",
-                      grade: "",
-                      reportingManager: "",
+                      location: [],
+                      department: [],
+                      level: [],
+                      grade: [],
+                      reportingManager: [],
                     });
                     setAppliedFilters({
                       nameOrCode: "",
-                      location: "",
-                      department: "",
-                      level: "",
-                      grade: "",
-                      reportingManager: "",
+                      location: [],
+                      department: [],
+                      level: [],
+                      grade: [],
+                      reportingManager: [],
                     });
                   }}
                   data-testid="cancel-employee-selection"
