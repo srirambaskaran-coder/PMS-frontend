@@ -899,8 +899,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Level management routes - Administrator isolated
-  app.get('/api/levels', isAuthenticated, requireRoles(['admin']), async (req: any, res) => {
+  // Level management routes - Administrator isolated (GET endpoints accessible by HR Manager too)
+  app.get('/api/levels', isAuthenticated, requireRoles(['admin', 'hr_manager']), async (req: any, res) => {
     try {
       const createdById = req.user.claims.sub;
       const levels = await storage.getLevels(createdById);
@@ -911,7 +911,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/levels/:id', isAuthenticated, requireRoles(['admin']), async (req: any, res) => {
+  app.get('/api/levels/:id', isAuthenticated, requireRoles(['admin', 'hr_manager']), async (req: any, res) => {
     try {
       const { id } = req.params;
       const createdById = req.user.claims.sub;
@@ -984,8 +984,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Grade management routes - Administrator isolated
-  app.get('/api/grades', isAuthenticated, requireRoles(['admin']), async (req: any, res) => {
+  // Grade management routes - Administrator isolated (GET endpoints accessible by HR Manager too)
+  app.get('/api/grades', isAuthenticated, requireRoles(['admin', 'hr_manager']), async (req: any, res) => {
     try {
       const createdById = req.user.claims.sub;
       const grades = await storage.getGrades(createdById);
@@ -996,7 +996,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/grades/:id', isAuthenticated, requireRoles(['admin']), async (req: any, res) => {
+  app.get('/api/grades/:id', isAuthenticated, requireRoles(['admin', 'hr_manager']), async (req: any, res) => {
     try {
       const { id } = req.params;
       const createdById = req.user.claims.sub;

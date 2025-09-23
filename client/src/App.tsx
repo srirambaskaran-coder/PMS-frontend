@@ -40,6 +40,7 @@ function Router() {
           <Route path="/users" component={EmployeeManagement} />
           <Route path="/locations" component={LocationManagement} />
           <Route path="/questionnaires" component={QuestionnaireTemplates} />
+          <Route path="/questionnaire-templates" component={QuestionnaireTemplates} />
           <Route path="/publish-questionnaires" component={PublishQuestionnaires} />
           <Route path="/levels" component={LevelManagement} />
           <Route path="/grades" component={GradeManagement} />

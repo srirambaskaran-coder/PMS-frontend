@@ -635,16 +635,18 @@ export default function QuestionnaireTemplates() {
                       </div>
                     </div>
                     <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleCopy(template.id)}
-                        disabled={copyTemplateMutation.isPending}
-                        data-testid={`copy-template-${template.id}`}
-                        title="Copy Template"
-                      >
-                        <Copy className="h-4 w-4" />
-                      </Button>
+                      <RoleGuard allowedRoles={['admin', 'hr_manager']}>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleCopy(template.id)}
+                          disabled={copyTemplateMutation.isPending}
+                          data-testid={`copy-template-${template.id}`}
+                          title="Copy Template"
+                        >
+                          <Copy className="h-4 w-4" />
+                        </Button>
+                      </RoleGuard>
                       <Button
                         variant="outline"
                         size="sm"
