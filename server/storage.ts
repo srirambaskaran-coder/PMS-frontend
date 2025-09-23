@@ -10,6 +10,7 @@ import {
   accessTokens,
   levels,
   grades,
+  departments,
   appraisalCycles,
   reviewFrequencies,
   frequencyCalendars,
@@ -39,6 +40,8 @@ import {
   type InsertLevel,
   type Grade,
   type InsertGrade,
+  type Department,
+  type InsertDepartment,
   type AppraisalCycle,
   type InsertAppraisalCycle,
   type ReviewFrequency,
@@ -978,6 +981,72 @@ export class DatabaseStorage implements IStorage {
     
     if (result.rowCount === 0) {
       throw new Error('Grade not found or access denied');
+    }
+  }
+
+  // Department operations - Administrator isolated
+  async getDepartments(createdById: string): Promise<Department[]> {
+    return await db.select().from(departments).where(
+      and(
+        eq(departments.createdById, createdById),
+        eq(departments.status, 'active')
+      )
+    ).orderBy(asc(departments.code));
+  }
+
+  async getDepartment(id: string, createdById: string): Promise<Department | undefined> {
+    const [department] = await db.select().from(departments).where(
+      and(
+        eq(departments.id, id),
+        eq(departments.createdById, createdById)
+      )
+    );
+    return department;
+  }
+
+  async createDepartment(department: InsertDepartment, createdById: string): Promise<Department> {
+    const [newDepartment] = await db.insert(departments).values({
+      ...department,
+      createdById,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }).returning();
+    return newDepartment;
+  }
+
+  async updateDepartment(id: string, department: Partial<InsertDepartment>, createdById: string): Promise<Department> {
+    const [updatedDepartment] = await db
+      .update(departments)
+      .set({ 
+        ...department, 
+        updatedAt: new Date() 
+      })
+      .where(
+        and(
+          eq(departments.id, id),
+          eq(departments.createdById, createdById)
+        )
+      )
+      .returning();
+    
+    if (!updatedDepartment) {
+      throw new Error('Department not found or access denied');
+    }
+    return updatedDepartment;
+  }
+
+  async deleteDepartment(id: string, createdById: string): Promise<void> {
+    const result = await db
+      .delete(departments)
+      .where(
+        and(
+          eq(departments.id, id),
+          eq(departments.createdById, createdById)
+        )
+      );
+    
+    if (result.rowCount === 0) {
+      throw new Error('Department not found or access denied');
     }
   }
 
