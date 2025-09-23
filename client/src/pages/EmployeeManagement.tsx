@@ -623,13 +623,27 @@ export default function EmployeeManagement() {
                     />
                   </div>
 
-                  {/* Password fields - for Super Admin and Admin */}
+                  {/* Password fields - Super Admin only */}
                   {(isSuperAdmin || isAdmin) && (
                     <div className="border-t pt-4">
                       <div className="flex items-center gap-2 mb-4">
                         <Key className="h-4 w-4" />
                         <h3 className="text-lg font-medium">{editingUser ? "Change Password" : "Set Password"}</h3>
+                        {!isSuperAdmin && isAdmin && (
+                          <Badge variant="secondary" className="ml-2">
+                            Super Admin Required
+                          </Badge>
+                        )}
                       </div>
+                      
+                      {!isSuperAdmin && isAdmin && (
+                        <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-md p-3 mb-4">
+                          <p className="text-sm text-yellow-800 dark:text-yellow-200">
+                            <strong>Note:</strong> Password changes can only be performed by Super Administrators. 
+                            Contact a Super Administrator to change this user's password.
+                          </p>
+                        </div>
+                      )}
                       <div className="grid grid-cols-2 gap-4">
                         <FormField
                           control={form.control}
@@ -640,7 +654,8 @@ export default function EmployeeManagement() {
                               <FormControl>
                                 <Input
                                   type="password"
-                                  placeholder="Enter new password"
+                                  placeholder={isSuperAdmin ? "Enter new password" : "Super Administrator required"}
+                                  disabled={!isSuperAdmin}
                                   {...field}
                                   data-testid="input-password"
                                 />
@@ -658,7 +673,8 @@ export default function EmployeeManagement() {
                               <FormControl>
                                 <Input
                                   type="password"
-                                  placeholder="Confirm new password"
+                                  placeholder={isSuperAdmin ? "Confirm new password" : "Super Administrator required"}
+                                  disabled={!isSuperAdmin}
                                   {...field}
                                   data-testid="input-confirm-password"
                                 />
@@ -669,10 +685,13 @@ export default function EmployeeManagement() {
                         />
                       </div>
                       <p className="text-sm text-muted-foreground mt-2">
-                        {editingUser 
-                          ? "Leave password fields empty if you don't want to change the password."
-                          : "Set a password for the new user account."
-                        }
+                        {isSuperAdmin ? (
+                          editingUser 
+                            ? "Leave password fields empty if you don't want to change the password."
+                            : "Set a password for the new user account."
+                        ) : (
+                          "Password fields are disabled. Only Super Administrators can change passwords."
+                        )}
                       </p>
                     </div>
                   )}
