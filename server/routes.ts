@@ -14,6 +14,7 @@ import {
   insertEmailConfigSchema,
   insertLevelSchema,
   insertGradeSchema,
+  insertDepartmentSchema,
   insertAppraisalCycleSchema,
   insertReviewFrequencySchema,
   insertFrequencyCalendarSchema,
@@ -1066,6 +1067,91 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error deleting grade:", error);
       res.status(500).json({ message: "Failed to delete grade" });
+    }
+  });
+
+  // Department management routes - Administrator isolated
+  app.get('/api/departments', isAuthenticated, requireRoles(['admin']), async (req: any, res) => {
+    try {
+      const createdById = req.user.claims.sub;
+      const departments = await storage.getDepartments(createdById);
+      res.json(departments);
+    } catch (error) {
+      console.error("Error fetching departments:", error);
+      res.status(500).json({ message: "Failed to fetch departments" });
+    }
+  });
+
+  app.get('/api/departments/:id', isAuthenticated, requireRoles(['admin']), async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const createdById = req.user.claims.sub;
+      const department = await storage.getDepartment(id, createdById);
+      if (!department) {
+        return res.status(404).json({ message: "Department not found" });
+      }
+      res.json(department);
+    } catch (error) {
+      console.error("Error fetching department:", error);
+      res.status(500).json({ message: "Failed to fetch department" });
+    }
+  });
+
+  app.post('/api/departments', isAuthenticated, requireRoles(['admin']), async (req: any, res) => {
+    try {
+      const departmentData = insertDepartmentSchema.parse(req.body);
+      const createdById = req.user.claims.sub;
+      const department = await storage.createDepartment(departmentData, createdById);
+      res.status(201).json(department);
+    } catch (error) {
+      console.error("Error creating department:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid department data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to create department" });
+    }
+  });
+
+  app.put('/api/departments/:id', isAuthenticated, requireRoles(['admin']), async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const createdById = req.user.claims.sub;
+      
+      // Check if department exists and belongs to the administrator
+      const existingDepartment = await storage.getDepartment(id, createdById);
+      if (!existingDepartment) {
+        return res.status(404).json({ message: "Department not found" });
+      }
+      
+      // Parse and sanitize the request body to prevent ownership changes
+      const { id: _id, createdById: _createdById, createdAt: _createdAt, ...safeDepartmentData } = insertDepartmentSchema.partial().parse(req.body);
+      const department = await storage.updateDepartment(id, safeDepartmentData, createdById);
+      res.json(department);
+    } catch (error) {
+      console.error("Error updating department:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid department data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to update department" });
+    }
+  });
+
+  app.delete('/api/departments/:id', isAuthenticated, requireRoles(['admin']), async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const createdById = req.user.claims.sub;
+      
+      // Check if department exists and belongs to the administrator
+      const existingDepartment = await storage.getDepartment(id, createdById);
+      if (!existingDepartment) {
+        return res.status(404).json({ message: "Department not found" });
+      }
+      
+      await storage.deleteDepartment(id, createdById);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting department:", error);
+      res.status(500).json({ message: "Failed to delete department" });
     }
   });
 
