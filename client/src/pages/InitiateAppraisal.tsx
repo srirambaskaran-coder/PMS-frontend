@@ -120,15 +120,23 @@ export default function InitiateAppraisal() {
   // Mutation for initiating appraisal
   const initiateMutation = useMutation({
     mutationFn: async (data: InitiateAppraisalForm & { appraisalGroupId: string }) => {
-      const formData = new FormData();
-      formData.append('data', JSON.stringify(data));
-      if (uploadedFile) {
-        formData.append('document', uploadedFile);
-      }
-      return apiRequest('/api/initiate-appraisal', {
+      // For now, send as JSON since file upload is not fully implemented
+      // TODO: Implement proper file upload with FormData when needed
+      const response = await fetch('/api/initiate-appraisal', {
         method: 'POST',
-        body: formData,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify(data),
       });
+
+      if (!response.ok) {
+        const error = await response.text();
+        throw new Error(`${response.status}: ${error}`);
+      }
+
+      return response.json();
     },
     onSuccess: () => {
       toast({
