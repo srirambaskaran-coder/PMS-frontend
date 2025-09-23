@@ -228,6 +228,20 @@ export const grades = pgTable("grades", {
   index("grades_created_by_id_idx").on(table.createdById),
 ]);
 
+// Department table - Administrator managed
+export const departments = pgTable("departments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  code: varchar("code").notNull(),
+  description: text("description").notNull(),
+  status: statusEnum("status").default('active'),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+  createdById: varchar("created_by_id").notNull(),
+}, (table) => [
+  unique().on(table.createdById, table.code),
+  index("departments_created_by_id_idx").on(table.createdById),
+]);
+
 // Appraisal Cycle table - Administrator managed
 export const appraisalCycles = pgTable("appraisal_cycles", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -403,6 +417,14 @@ export const gradesRelations = relations(grades, ({ one, many }) => ({
   questionnaires: many(questionnaireTemplates),
 }));
 
+export const departmentsRelations = relations(departments, ({ one, many }) => ({
+  createdBy: one(users, {
+    fields: [departments.createdById],
+    references: [users.id],
+  }),
+  users: many(users),
+}));
+
 export const appraisalCyclesRelations = relations(appraisalCycles, ({ one, many }) => ({
   createdBy: one(users, {
     fields: [appraisalCycles.createdById],
@@ -566,6 +588,13 @@ export const insertGradeSchema = createInsertSchema(grades).omit({
   createdById: true,
 });
 
+export const insertDepartmentSchema = createInsertSchema(departments).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  createdById: true,
+});
+
 export const insertAppraisalCycleSchema = createInsertSchema(appraisalCycles).omit({
   id: true,
   createdAt: true,
@@ -669,6 +698,8 @@ export type Level = typeof levels.$inferSelect;
 export type InsertLevel = z.infer<typeof insertLevelSchema>;
 export type Grade = typeof grades.$inferSelect;
 export type InsertGrade = z.infer<typeof insertGradeSchema>;
+export type Department = typeof departments.$inferSelect;
+export type InsertDepartment = z.infer<typeof insertDepartmentSchema>;
 export type AppraisalCycle = typeof appraisalCycles.$inferSelect;
 export type InsertAppraisalCycle = z.infer<typeof insertAppraisalCycleSchema>;
 export type ReviewFrequency = typeof reviewFrequencies.$inferSelect;
