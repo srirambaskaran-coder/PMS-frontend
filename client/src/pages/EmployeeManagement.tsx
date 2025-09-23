@@ -59,6 +59,10 @@ export default function EmployeeManagement() {
     queryKey: ["/api/grades"],
   });
 
+  const { data: departments = [] } = useQuery<any[]>({
+    queryKey: ["/api/departments"],
+  });
+
   const createUserMutation = useMutation({
     mutationFn: async (userData: InsertUser) => {
       await apiRequest("POST", "/api/users", userData);
@@ -388,6 +392,34 @@ export default function EmployeeManagement() {
                               {companies.map((company: any) => (
                                 <SelectItem key={company.id} value={company.id}>
                                   {company.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="department"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Department</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value ?? "none"}>
+                            <FormControl>
+                              <SelectTrigger data-testid="select-department">
+                                <SelectValue placeholder="Select department" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="none">No Department</SelectItem>
+                              {departments.map((department: any) => (
+                                <SelectItem key={department.id} value={department.code}>
+                                  {department.description} ({department.code})
                                 </SelectItem>
                               ))}
                             </SelectContent>
