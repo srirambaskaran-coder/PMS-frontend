@@ -417,8 +417,18 @@ export class DatabaseStorage implements IStorage {
       userData.passwordHash = await bcrypt.hash(password, saltRounds);
     }
     
-    // SECURITY: Enhanced role escalation protection - prevent unauthorized super_admin assignments
-    if (userData.role !== undefined || userData.roles !== undefined) {
+    // Get current user data to check if role is actually changing
+    const currentUser = await db.select().from(users).where(eq(users.id, id)).limit(1);
+    if (!currentUser || currentUser.length === 0) {
+      throw new Error('User not found');
+    }
+    const existingUser = currentUser[0];
+    
+    // SECURITY: Enhanced role escalation protection - only validate when role is actually changing
+    const isRoleChanging = (userData.role !== undefined && userData.role !== existingUser.role) ||
+                          (userData.roles !== undefined && JSON.stringify(userData.roles) !== JSON.stringify(existingUser.roles));
+    
+    if (isRoleChanging) {
       // CRITICAL: requestingUserId is REQUIRED for any role changes
       if (!requestingUserId) {
         throw new Error('Unauthorized: Role changes require authenticated request');
