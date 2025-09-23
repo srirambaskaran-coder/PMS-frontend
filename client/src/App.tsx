@@ -12,6 +12,7 @@ import Dashboard from "@/pages/Dashboard";
 import CompanyManagement from "@/pages/CompanyManagement";
 import EmployeeManagement from "@/pages/EmployeeManagement";
 import LocationManagement from "@/pages/LocationManagement";
+import DepartmentManagement from "@/pages/DepartmentManagement";
 import QuestionnaireTemplates from "@/pages/QuestionnaireTemplates";
 import PublishQuestionnaires from "@/pages/PublishQuestionnaires";
 import LevelManagement from "@/pages/LevelManagement";
@@ -39,6 +40,7 @@ function Router() {
           <Route path="/companies" component={CompanyManagement} />
           <Route path="/users" component={EmployeeManagement} />
           <Route path="/locations" component={LocationManagement} />
+          <Route path="/departments" component={DepartmentManagement} />
           <Route path="/questionnaires" component={QuestionnaireTemplates} />
           <Route path="/questionnaire-templates" component={QuestionnaireTemplates} />
           <Route path="/publish-questionnaires" component={PublishQuestionnaires} />
