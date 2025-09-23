@@ -1,8 +1,13 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Play, Users, FileText, Calendar, Settings2 } from "lucide-react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { Play, Users, FileText, Calendar, Settings2, Upload, X, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
@@ -10,40 +15,173 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
+import { Separator } from "@/components/ui/separator";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { RoleGuard } from "@/components/RoleGuard";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import type { SafeUser, AppraisalGroup } from "@shared/schema";
+import type { SafeUser, AppraisalGroup, QuestionnaireTemplate, FrequencyCalendar, AppraisalCycle } from "@shared/schema";
 
 interface AppraisalGroupWithMembers extends AppraisalGroup {
   members: SafeUser[];
 }
 
+// Form validation schema
+const initiateAppraisalSchema = z.object({
+  appraisalType: z.enum(['questionnaire_based', 'kpi_based', 'mbo_based', 'okr_based']),
+  questionnaireTemplateId: z.string().optional(),
+  documentFile: z.any().optional(), // File upload
+  frequencyCalendarId: z.string().optional(),
+  daysToInitiate: z.coerce.number().min(0).max(365).default(0),
+  daysToClose: z.coerce.number().min(1).max(365).default(30),
+  numberOfReminders: z.coerce.number().min(1).max(10).default(3),
+  excludeTenureLessThanYear: z.boolean().default(false),
+  excludedEmployeeIds: z.array(z.string()).default([]),
+  makePublic: z.boolean().default(false),
+  publishType: z.enum(['now', 'as_per_calendar']).default('now'),
+}).refine((data) => {
+  if (data.appraisalType === 'questionnaire_based') {
+    return !!data.questionnaireTemplateId;
+  }
+  if (data.appraisalType === 'kpi_based' || data.appraisalType === 'mbo_based') {
+    return !!data.documentFile;
+  }
+  return true;
+}, {
+  message: "Please select required fields based on appraisal type",
+  path: ["appraisalType"]
+});
+
+type InitiateAppraisalForm = z.infer<typeof initiateAppraisalSchema>;
+
 export default function InitiateAppraisal() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedGroup, setSelectedGroup] = useState<AppraisalGroupWithMembers | null>(null);
   const [isInitiateFormOpen, setIsInitiateFormOpen] = useState(false);
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const { toast } = useToast();
+
+  // Form initialization
+  const form = useForm<InitiateAppraisalForm>({
+    resolver: zodResolver(initiateAppraisalSchema),
+    defaultValues: {
+      appraisalType: 'questionnaire_based',
+      daysToInitiate: 0,
+      daysToClose: 30,
+      numberOfReminders: 3,
+      excludeTenureLessThanYear: false,
+      excludedEmployeeIds: [],
+      makePublic: false,
+      publishType: 'now',
+    },
+  });
 
   // Fetch appraisal groups
   const { data: groups = [], isLoading } = useQuery<AppraisalGroupWithMembers[]>({
     queryKey: ['/api/appraisal-groups'],
   });
 
+  // Fetch questionnaire templates for dropdown
+  const { data: questionnaireTemplates = [] } = useQuery<QuestionnaireTemplate[]>({
+    queryKey: ['/api/questionnaire-templates'],
+  });
+
+  // Fetch frequency calendars for dropdown
+  const { data: frequencyCalendars = [] } = useQuery<FrequencyCalendar[]>({
+    queryKey: ['/api/frequency-calendars'],
+  });
+
+  // Mutation for initiating appraisal
+  const initiateMutation = useMutation({
+    mutationFn: async (data: InitiateAppraisalForm & { appraisalGroupId: string }) => {
+      const formData = new FormData();
+      formData.append('data', JSON.stringify(data));
+      if (uploadedFile) {
+        formData.append('document', uploadedFile);
+      }
+      return apiRequest('/api/initiate-appraisal', {
+        method: 'POST',
+        body: formData,
+      });
+    },
+    onSuccess: () => {
+      toast({
+        title: "Appraisal Initiated",
+        description: "The appraisal has been successfully initiated.",
+      });
+      setIsInitiateFormOpen(false);
+      setSelectedGroup(null);
+      form.reset();
+      setUploadedFile(null);
+      queryClient.invalidateQueries({ queryKey: ['/api/initiated-appraisals'] });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: "Failed to initiate appraisal. Please try again.",
+        variant: "destructive",
+      });
+      console.error('Failed to initiate appraisal:', error);
+    },
+  });
+
   const handleInitiateAppraisal = (group: AppraisalGroupWithMembers) => {
     setSelectedGroup(group);
     setIsInitiateFormOpen(true);
+    form.reset();
+    setUploadedFile(null);
   };
+
+  const onSubmit = (data: InitiateAppraisalForm) => {
+    if (!selectedGroup) return;
+    
+    initiateMutation.mutate({
+      ...data,
+      appraisalGroupId: selectedGroup.id,
+      documentFile: uploadedFile,
+    });
+  };
+
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setUploadedFile(file);
+      form.setValue('documentFile', file);
+    }
+  };
+
+  const removeFile = () => {
+    setUploadedFile(null);
+    form.setValue('documentFile', undefined);
+  };
+
+  const appraisalType = form.watch('appraisalType');
 
   // Filter groups based on search query
   const filteredGroups = groups.filter(group =>
@@ -183,26 +321,400 @@ export default function InitiateAppraisal() {
             </DialogHeader>
             
             {selectedGroup && (
-              <div className="space-y-6">
-                {/* Read-only Group Info */}
-                <div className="bg-muted/50 p-4 rounded-lg">
-                  <h4 className="font-semibold mb-2">Selected Appraisal Group</h4>
-                  <div className="flex items-center gap-4">
-                    <span className="text-lg font-medium">{selectedGroup.name}</span>
-                    <Badge variant="secondary">
-                      {selectedGroup.members.length} members
-                    </Badge>
+              <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                  {/* Read-only Group Info */}
+                  <div className="bg-muted/50 p-4 rounded-lg">
+                    <h4 className="font-semibold mb-2">Selected Appraisal Group</h4>
+                    <div className="flex items-center gap-4">
+                      <span className="text-lg font-medium">{selectedGroup.name}</span>
+                      <Badge variant="secondary">
+                        {selectedGroup.members.length} members
+                      </Badge>
+                    </div>
+                    {selectedGroup.description && (
+                      <p className="text-muted-foreground mt-2">{selectedGroup.description}</p>
+                    )}
                   </div>
-                  {selectedGroup.description && (
-                    <p className="text-muted-foreground mt-2">{selectedGroup.description}</p>
-                  )}
-                </div>
 
-                {/* This will be replaced with the full form in the next step */}
-                <div className="text-center py-12 text-muted-foreground">
-                  Initiate Appraisal form will be implemented here...
-                </div>
-              </div>
+                  <Separator />
+
+                  {/* Appraisal Type Selection */}
+                  <div className="space-y-4">
+                    <h4 className="text-lg font-semibold">Appraisal Configuration</h4>
+                    
+                    <FormField
+                      control={form.control}
+                      name="appraisalType"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Appraisal Type*</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl>
+                              <SelectTrigger data-testid="select-appraisal-type">
+                                <SelectValue placeholder="Select appraisal type" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="questionnaire_based">Questionnaire Based</SelectItem>
+                              <SelectItem value="kpi_based">KPI Based</SelectItem>
+                              <SelectItem value="mbo_based">MBO Based</SelectItem>
+                              <SelectItem value="okr_based">OKR Based</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormDescription>
+                            Choose the type of performance appraisal to conduct
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    {/* Questionnaire Template Selection (for questionnaire_based) */}
+                    {appraisalType === 'questionnaire_based' && (
+                      <FormField
+                        control={form.control}
+                        name="questionnaireTemplateId"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Questionnaire Template*</FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value}>
+                              <FormControl>
+                                <SelectTrigger data-testid="select-questionnaire-template">
+                                  <SelectValue placeholder="Select questionnaire template" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {questionnaireTemplates.map((template) => (
+                                  <SelectItem key={template.id} value={template.id}>
+                                    {template.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <FormDescription>
+                              Choose the questionnaire template for this appraisal
+                            </FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    )}
+
+                    {/* Document Upload (for KPI/MBO based) */}
+                    {(appraisalType === 'kpi_based' || appraisalType === 'mbo_based') && (
+                      <div className="space-y-2">
+                        <Label>Upload Document*</Label>
+                        <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6">
+                          {uploadedFile ? (
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <FileText className="h-5 w-5 text-blue-500" />
+                                <span className="text-sm font-medium">{uploadedFile.name}</span>
+                                <Badge variant="secondary">
+                                  {(uploadedFile.size / 1024).toFixed(1)} KB
+                                </Badge>
+                              </div>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={removeFile}
+                                data-testid="remove-file-btn"
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          ) : (
+                            <div className="text-center">
+                              <Upload className="h-10 w-10 text-muted-foreground mx-auto mb-2" />
+                              <p className="text-muted-foreground mb-2">
+                                Upload {appraisalType === 'kpi_based' ? 'KPI' : 'MBO'} document
+                              </p>
+                              <input
+                                type="file"
+                                accept=".pdf,.doc,.docx,.xlsx,.xls"
+                                onChange={handleFileUpload}
+                                className="hidden"
+                                id="document-upload"
+                                data-testid="file-input"
+                              />
+                              <Label htmlFor="document-upload" className="cursor-pointer">
+                                <Button type="button" variant="outline" asChild>
+                                  <span>Choose File</span>
+                                </Button>
+                              </Label>
+                            </div>
+                          )}
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                          Accepted formats: PDF, DOC, DOCX, XLS, XLSX (Max 10MB)
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  <Separator />
+
+                  {/* Schedule & Timing Configuration */}
+                  <div className="space-y-4">
+                    <h4 className="text-lg font-semibold">Schedule & Timing</h4>
+                    
+                    <FormField
+                      control={form.control}
+                      name="frequencyCalendarId"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Frequency Calendar</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value}>
+                            <FormControl>
+                              <SelectTrigger data-testid="select-frequency-calendar">
+                                <SelectValue placeholder="Select frequency calendar (optional)" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {frequencyCalendars.map((calendar) => (
+                                <SelectItem key={calendar.id} value={calendar.id}>
+                                  {calendar.code} - {calendar.description}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormDescription>
+                            Optional: Link to a frequency calendar for automated scheduling
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="daysToInitiate"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Days to Initiate</FormLabel>
+                            <FormControl>
+                              <Input
+                                type="number"
+                                min="0"
+                                max="365"
+                                placeholder="0"
+                                {...field}
+                                data-testid="input-days-to-initiate"
+                              />
+                            </FormControl>
+                            <FormDescription>
+                              Days after calendar period end
+                            </FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="daysToClose"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Days to Close*</FormLabel>
+                            <FormControl>
+                              <Input
+                                type="number"
+                                min="1"
+                                max="365"
+                                placeholder="30"
+                                {...field}
+                                data-testid="input-days-to-close"
+                              />
+                            </FormControl>
+                            <FormDescription>
+                              Days after initiation to close
+                            </FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="numberOfReminders"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Number of Reminders</FormLabel>
+                            <FormControl>
+                              <Input
+                                type="number"
+                                min="1"
+                                max="10"
+                                placeholder="3"
+                                {...field}
+                                data-testid="input-number-of-reminders"
+                              />
+                            </FormControl>
+                            <FormDescription>
+                              Automatic reminders (1-10)
+                            </FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  {/* Employee Exclusions */}
+                  <div className="space-y-4">
+                    <h4 className="text-lg font-semibold">Employee Exclusions</h4>
+                    
+                    <FormField
+                      control={form.control}
+                      name="excludeTenureLessThanYear"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                          <div className="space-y-0.5">
+                            <FormLabel className="text-base">
+                              Exclude employees with tenure less than 1 year
+                            </FormLabel>
+                            <FormDescription>
+                              Automatically exclude employees who joined less than a year ago
+                            </FormDescription>
+                          </div>
+                          <FormControl>
+                            <Switch
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                              data-testid="switch-exclude-tenure"
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+
+                    {/* Individual Employee Exclusions */}
+                    <div className="space-y-2">
+                      <Label>Exclude Specific Employees</Label>
+                      <p className="text-sm text-muted-foreground">
+                        Select individual employees to exclude from this appraisal cycle
+                      </p>
+                      
+                      <ScrollArea className="h-40 border rounded-md p-4">
+                        <div className="space-y-2">
+                          {selectedGroup.members.map((member) => {
+                            const isExcluded = form.watch('excludedEmployeeIds').includes(member.id);
+                            return (
+                              <div key={member.id} className="flex items-center space-x-2">
+                                <Checkbox
+                                  id={`exclude-${member.id}`}
+                                  checked={isExcluded}
+                                  onCheckedChange={(checked) => {
+                                    const currentExcluded = form.getValues('excludedEmployeeIds');
+                                    if (checked) {
+                                      form.setValue('excludedEmployeeIds', [...currentExcluded, member.id]);
+                                    } else {
+                                      form.setValue('excludedEmployeeIds', currentExcluded.filter(id => id !== member.id));
+                                    }
+                                  }}
+                                  data-testid={`checkbox-exclude-${member.id}`}
+                                />
+                                <Label htmlFor={`exclude-${member.id}`} className="text-sm font-normal">
+                                  {member.firstName} {member.lastName} ({member.email})
+                                </Label>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </ScrollArea>
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  {/* Publication Settings */}
+                  <div className="space-y-4">
+                    <h4 className="text-lg font-semibold">Publication Settings</h4>
+                    
+                    <FormField
+                      control={form.control}
+                      name="makePublic"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                          <div className="space-y-0.5">
+                            <FormLabel className="text-base">
+                              Make appraisal results public
+                            </FormLabel>
+                            <FormDescription>
+                              Allow other employees to view the results of this appraisal
+                            </FormDescription>
+                          </div>
+                          <FormControl>
+                            <Switch
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                              data-testid="switch-make-public"
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="publishType"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Publish Type</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl>
+                              <SelectTrigger data-testid="select-publish-type">
+                                <SelectValue placeholder="Select publish type" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="now">Publish Now</SelectItem>
+                              <SelectItem value="as_per_calendar">As Per Calendar</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormDescription>
+                            Choose when to publish this appraisal to employees
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  <DialogFooter className="pt-6">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setIsInitiateFormOpen(false)}
+                      data-testid="cancel-btn"
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      type="submit"
+                      disabled={initiateMutation.isPending}
+                      data-testid="initiate-submit-btn"
+                    >
+                      {initiateMutation.isPending ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                          Initiating...
+                        </>
+                      ) : (
+                        <>
+                          <Play className="h-4 w-4 mr-2" />
+                          Initiate Appraisal
+                        </>
+                      )}
+                    </Button>
+                  </DialogFooter>
+                </form>
+              </Form>
             )}
           </DialogContent>
         </Dialog>
