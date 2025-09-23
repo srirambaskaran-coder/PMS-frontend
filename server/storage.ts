@@ -177,6 +177,7 @@ export interface IStorage {
   
   // Frequency Calendar operations - Administrator isolated
   getFrequencyCalendars(createdById: string): Promise<FrequencyCalendar[]>;
+  getAllFrequencyCalendars(): Promise<FrequencyCalendar[]>; // For HR managers to see all calendars
   getFrequencyCalendar(id: string, createdById: string): Promise<FrequencyCalendar | undefined>;
   createFrequencyCalendar(calendar: InsertFrequencyCalendar, createdById: string): Promise<FrequencyCalendar>;
   updateFrequencyCalendar(id: string, calendar: Partial<InsertFrequencyCalendar>, createdById: string): Promise<FrequencyCalendar>;
@@ -184,6 +185,7 @@ export interface IStorage {
   
   // Frequency Calendar Details operations - Administrator isolated through parent calendar
   getFrequencyCalendarDetails(createdById: string): Promise<FrequencyCalendarDetails[]>;
+  getFrequencyCalendarDetailsByCalendarId(calendarId: string): Promise<FrequencyCalendarDetails[]>; // For showing details of a specific calendar
   getFrequencyCalendarDetail(id: string, createdById: string): Promise<FrequencyCalendarDetails | undefined>;
   createFrequencyCalendarDetails(details: InsertFrequencyCalendarDetails, createdById: string): Promise<FrequencyCalendarDetails>;
   updateFrequencyCalendarDetails(id: string, details: Partial<InsertFrequencyCalendarDetails>, createdById: string): Promise<FrequencyCalendarDetails>;
@@ -1225,6 +1227,13 @@ export class DatabaseStorage implements IStorage {
     ).orderBy(asc(frequencyCalendars.code));
   }
 
+  // Get all frequency calendars for HR managers
+  async getAllFrequencyCalendars(): Promise<FrequencyCalendar[]> {
+    return await db.select().from(frequencyCalendars).where(
+      eq(frequencyCalendars.status, 'active')
+    ).orderBy(asc(frequencyCalendars.code));
+  }
+
   async getFrequencyCalendar(id: string, createdById: string): Promise<FrequencyCalendar | undefined> {
     const [calendar] = await db.select().from(frequencyCalendars).where(
       and(
@@ -1304,6 +1313,16 @@ export class DatabaseStorage implements IStorage {
         )
       )
       .orderBy(asc(frequencyCalendarDetails.startDate));
+  }
+
+  // Get frequency calendar details by calendar ID (for HR managers)
+  async getFrequencyCalendarDetailsByCalendarId(calendarId: string): Promise<FrequencyCalendarDetails[]> {
+    return await db.select().from(frequencyCalendarDetails).where(
+      and(
+        eq(frequencyCalendarDetails.frequencyCalendarId, calendarId),
+        eq(frequencyCalendarDetails.status, 'active')
+      )
+    ).orderBy(asc(frequencyCalendarDetails.startDate));
   }
 
   async getFrequencyCalendarDetail(id: string, createdById: string): Promise<FrequencyCalendarDetails | undefined> {

@@ -1352,8 +1352,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Frequency Calendar management routes - Administrator isolated
   app.get('/api/frequency-calendars', isAuthenticated, requireRoles(['admin', 'hr_manager']), async (req: any, res) => {
     try {
-      const createdById = req.user.claims.sub;
-      const calendars = await storage.getFrequencyCalendars(createdById);
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      // HR managers can see all calendars, admins see only theirs
+      let calendars;
+      if (user.role === 'hr_manager') {
+        calendars = await storage.getAllFrequencyCalendars();
+      } else {
+        calendars = await storage.getFrequencyCalendars(userId);
+      }
+      
       res.json(calendars);
     } catch (error) {
       console.error("Error fetching frequency calendars:", error);
@@ -1516,6 +1529,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error deleting frequency calendar details:", error);
       res.status(500).json({ message: "Failed to delete frequency calendar details" });
+    }
+  });
+
+  // New endpoint for HR managers to get frequency calendar details by calendar ID
+  app.get('/api/frequency-calendars/:calendarId/details', isAuthenticated, requireRoles(['admin', 'hr_manager']), async (req: any, res) => {
+    try {
+      const { calendarId } = req.params;
+      const details = await storage.getFrequencyCalendarDetailsByCalendarId(calendarId);
+      res.json(details);
+    } catch (error) {
+      console.error("Error fetching frequency calendar details by calendar ID:", error);
+      res.status(500).json({ message: "Failed to fetch frequency calendar details" });
     }
   });
 
