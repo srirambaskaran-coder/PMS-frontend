@@ -203,12 +203,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const isPasswordUpdate = password || confirmPassword;
       
       if (isPasswordUpdate) {
-        // SECURITY: Only super_admin can change passwords
+        // SECURITY: Get current user and target user for authorization checks
         const currentUser = await storage.getUser(requestingUserId);
-        if (!currentUser || currentUser.role !== 'super_admin') {
-          return res.status(403).json({ 
-            message: "Password changes can only be performed by Super Administrators" 
-          });
+        const targetUser = await storage.getUser(id);
+        
+        if (!currentUser || !targetUser) {
+          return res.status(404).json({ message: "User not found" });
+        }
+        
+        const isSuperAdmin = currentUser.role === 'super_admin';
+        const isAdmin = currentUser.role === 'admin';
+        const isUserCreatedByAdmin = targetUser.createdById !== null && targetUser.createdById === requestingUserId;
+        const isTargetPrivileged = ['admin', 'super_admin'].includes(targetUser.role);
+        
+        // SECURITY: Allow password changes if:
+        // 1. Super Admin (can change any password) OR
+        // 2. Admin changing password of non-privileged user they created
+        const canChangePassword = isSuperAdmin || (isAdmin && isUserCreatedByAdmin && !isTargetPrivileged);
+        
+        if (!canChangePassword) {
+          const errorMessage = isSuperAdmin 
+            ? "Password changes can only be performed by Super Administrators"
+            : isAdmin
+              ? isTargetPrivileged
+                ? "Administrators cannot change passwords of other privileged users"
+                : "Administrators can only change passwords of users they created"
+              : "Insufficient privileges to change passwords";
+              
+          return res.status(403).json({ message: errorMessage });
         }
         
         // SECURITY: Validate password fields with dedicated schema

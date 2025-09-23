@@ -31,6 +31,18 @@ export default function EmployeeManagement() {
   const { user: currentUser } = useAuth();
   const isSuperAdmin = currentUser?.role === 'super_admin';
   const isAdmin = currentUser?.role === 'admin';
+  
+  // Calculate password change permissions based on new policy
+  const canChangePassword = (user: User | null) => {
+    if (!user || !currentUser) return false;
+    
+    const isSuperAdmin = currentUser.role === 'super_admin';
+    const isAdmin = currentUser.role === 'admin';
+    const isUserCreatedByAdmin = user.createdById !== null && user.createdById === currentUser.id;
+    const isTargetPrivileged = ['admin', 'super_admin'].includes(user.role);
+    
+    return isSuperAdmin || (isAdmin && isUserCreatedByAdmin && !isTargetPrivileged);
+  };
 
   // Build query string from filters
   const queryParams = new URLSearchParams();
@@ -623,24 +635,34 @@ export default function EmployeeManagement() {
                     />
                   </div>
 
-                  {/* Password fields - Super Admin only */}
+                  {/* Password fields - Super Admin or Creator */}
                   {(isSuperAdmin || isAdmin) && (
                     <div className="border-t pt-4">
                       <div className="flex items-center gap-2 mb-4">
                         <Key className="h-4 w-4" />
                         <h3 className="text-lg font-medium">{editingUser ? "Change Password" : "Set Password"}</h3>
-                        {!isSuperAdmin && isAdmin && (
+                        {editingUser && !canChangePassword(editingUser) && (
                           <Badge variant="secondary" className="ml-2">
-                            Super Admin Required
+                            {editingUser.createdById !== currentUser?.id 
+                              ? "Creator or Super Admin Required"
+                              : ["admin", "super_admin"].includes(editingUser.role)
+                                ? "Cannot Change Admin Password"
+                                : "Super Admin Required"
+                            }
                           </Badge>
                         )}
                       </div>
                       
-                      {!isSuperAdmin && isAdmin && (
+                      {editingUser && !canChangePassword(editingUser) && (
                         <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-md p-3 mb-4">
                           <p className="text-sm text-yellow-800 dark:text-yellow-200">
-                            <strong>Note:</strong> Password changes can only be performed by Super Administrators. 
-                            Contact a Super Administrator to change this user's password.
+                            <strong>Note:</strong> {
+                              editingUser.createdById !== currentUser?.id
+                                ? "You can only change passwords for users you created, or contact a Super Administrator."
+                                : ["admin", "super_admin"].includes(editingUser.role)
+                                  ? "For security reasons, passwords of Administrator and Super Administrator accounts cannot be changed by other Administrators."
+                                  : "Password changes require Super Administrator privileges."
+                            }
                           </p>
                         </div>
                       )}
@@ -654,8 +676,14 @@ export default function EmployeeManagement() {
                               <FormControl>
                                 <Input
                                   type="password"
-                                  placeholder={isSuperAdmin ? "Enter new password" : "Super Administrator required"}
-                                  disabled={!isSuperAdmin}
+                                  placeholder={
+                                    editingUser && canChangePassword(editingUser) 
+                                      ? "Enter new password" 
+                                      : !editingUser 
+                                        ? "Enter new password"
+                                        : "Authorization required"
+                                  }
+                                  disabled={editingUser ? !canChangePassword(editingUser) : false}
                                   {...field}
                                   data-testid="input-password"
                                 />
@@ -673,8 +701,14 @@ export default function EmployeeManagement() {
                               <FormControl>
                                 <Input
                                   type="password"
-                                  placeholder={isSuperAdmin ? "Confirm new password" : "Super Administrator required"}
-                                  disabled={!isSuperAdmin}
+                                  placeholder={
+                                    editingUser && canChangePassword(editingUser) 
+                                      ? "Confirm new password" 
+                                      : !editingUser 
+                                        ? "Confirm new password"
+                                        : "Authorization required"
+                                  }
+                                  disabled={editingUser ? !canChangePassword(editingUser) : false}
                                   {...field}
                                   data-testid="input-confirm-password"
                                 />
@@ -685,12 +719,12 @@ export default function EmployeeManagement() {
                         />
                       </div>
                       <p className="text-sm text-muted-foreground mt-2">
-                        {isSuperAdmin ? (
-                          editingUser 
+                        {editingUser ? (
+                          canChangePassword(editingUser)
                             ? "Leave password fields empty if you don't want to change the password."
-                            : "Set a password for the new user account."
+                            : "Password fields are disabled based on authorization rules."
                         ) : (
-                          "Password fields are disabled. Only Super Administrators can change passwords."
+                          "Set a password for the new user account."
                         )}
                       </p>
                     </div>
