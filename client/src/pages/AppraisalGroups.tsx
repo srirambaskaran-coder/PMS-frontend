@@ -21,6 +21,10 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { ChevronDown } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { RoleGuard } from "@/components/RoleGuard";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -298,6 +302,26 @@ export default function AppraisalGroups() {
     );
   };
 
+  // Extract unique filter options from all users
+  const getUniqueOptions = (field: 'locationId' | 'department' | 'levelId' | 'gradeId' | 'reportingManagerId') => {
+    const values = allUsers
+      .map(user => {
+        switch (field) {
+          case 'reportingManagerId':
+            return user.reportingManagerId ? {
+              value: user.reportingManagerId,
+              label: allUsers.find(manager => manager.id === user.reportingManagerId)?.firstName + ' ' + allUsers.find(manager => manager.id === user.reportingManagerId)?.lastName || user.reportingManagerId
+            } : null;
+          default:
+            return user[field] ? { value: user[field]!, label: user[field]! } : null;
+        }
+      })
+      .filter((item): item is { value: string; label: string } => item !== null)
+      .filter((item, index, self) => self.findIndex(i => i.value === item.value) === index)
+      .sort((a, b) => a.label.localeCompare(b.label));
+    return values;
+  };
+
   // Filter available employees (not already in the selected group)
   const selectedGroup = selectedGroupForEmployees ? groups.find(g => g.id === selectedGroupForEmployees) : null;
   const existingMemberIds = selectedGroup ? selectedGroup.members.map(m => m.id) : [];
@@ -340,6 +364,80 @@ export default function AppraisalGroups() {
 
     return true;
   });
+
+  // Multi-select component
+  const MultiSelect = ({ 
+    options, 
+    value, 
+    onChange, 
+    placeholder,
+    testId 
+  }: { 
+    options: { value: string; label: string }[], 
+    value: string[], 
+    onChange: (value: string[]) => void,
+    placeholder: string,
+    testId: string
+  }) => {
+    const [open, setOpen] = useState(false);
+    
+    const handleToggle = (optionValue: string) => {
+      const newValue = value.includes(optionValue)
+        ? value.filter(v => v !== optionValue)
+        : [...value, optionValue];
+      onChange(newValue);
+    };
+    
+    const displayValue = value.length > 0 
+      ? value.length === 1 
+        ? options.find(o => o.value === value[0])?.label || value[0]
+        : `${value.length} selected`
+      : placeholder;
+    
+    return (
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button
+            variant="outline"
+            role="combobox"
+            aria-expanded={open}
+            className="w-full justify-between text-left font-normal"
+            data-testid={testId}
+          >
+            {displayValue}
+            <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-full p-0" align="start">
+          <div className="max-h-60 overflow-auto p-1">
+            {options.map((option) => (
+              <div
+                key={option.value}
+                className="flex items-center space-x-2 rounded-md px-2 py-1 hover:bg-accent"
+              >
+                <Checkbox
+                  id={option.value}
+                  checked={value.includes(option.value)}
+                  onCheckedChange={() => handleToggle(option.value)}
+                />
+                <label
+                  htmlFor={option.value}
+                  className="flex-1 cursor-pointer text-sm"
+                >
+                  {option.label}
+                </label>
+              </div>
+            ))}
+            {options.length === 0 && (
+              <div className="px-2 py-3 text-center text-sm text-muted-foreground">
+                No options available
+              </div>
+            )}
+          </div>
+        </PopoverContent>
+      </Popover>
+    );
+  };
 
   return (
     <RoleGuard allowedRoles={['hr_manager']}>
@@ -602,51 +700,56 @@ export default function AppraisalGroups() {
                   
                   <div>
                     <label className="block text-sm font-medium mb-2">Location</label>
-                    <Input
-                      placeholder="Enter location..."
+                    <MultiSelect
+                      options={getUniqueOptions('locationId')}
                       value={draftFilters.location}
-                      onChange={(e) => setDraftFilters({ ...draftFilters, location: e.target.value })}
-                      data-testid="dialog-filter-location"
+                      onChange={(value) => setDraftFilters({ ...draftFilters, location: value })}
+                      placeholder="Select locations..."
+                      testId="dialog-filter-location"
                     />
                   </div>
                   
                   <div>
                     <label className="block text-sm font-medium mb-2">Department</label>
-                    <Input
-                      placeholder="Enter department..."
+                    <MultiSelect
+                      options={getUniqueOptions('department')}
                       value={draftFilters.department}
-                      onChange={(e) => setDraftFilters({ ...draftFilters, department: e.target.value })}
-                      data-testid="dialog-filter-department"
+                      onChange={(value) => setDraftFilters({ ...draftFilters, department: value })}
+                      placeholder="Select departments..."
+                      testId="dialog-filter-department"
                     />
                   </div>
                   
                   <div>
                     <label className="block text-sm font-medium mb-2">Level</label>
-                    <Input
-                      placeholder="Enter level..."
+                    <MultiSelect
+                      options={getUniqueOptions('levelId')}
                       value={draftFilters.level}
-                      onChange={(e) => setDraftFilters({ ...draftFilters, level: e.target.value })}
-                      data-testid="dialog-filter-level"
+                      onChange={(value) => setDraftFilters({ ...draftFilters, level: value })}
+                      placeholder="Select levels..."
+                      testId="dialog-filter-level"
                     />
                   </div>
                   
                   <div>
                     <label className="block text-sm font-medium mb-2">Grade</label>
-                    <Input
-                      placeholder="Enter grade..."
+                    <MultiSelect
+                      options={getUniqueOptions('gradeId')}
                       value={draftFilters.grade}
-                      onChange={(e) => setDraftFilters({ ...draftFilters, grade: e.target.value })}
-                      data-testid="dialog-filter-grade"
+                      onChange={(value) => setDraftFilters({ ...draftFilters, grade: value })}
+                      placeholder="Select grades..."
+                      testId="dialog-filter-grade"
                     />
                   </div>
                   
                   <div>
                     <label className="block text-sm font-medium mb-2">Reporting Manager</label>
-                    <Input
-                      placeholder="Enter manager name..."
+                    <MultiSelect
+                      options={getUniqueOptions('reportingManagerId')}
                       value={draftFilters.reportingManager}
-                      onChange={(e) => setDraftFilters({ ...draftFilters, reportingManager: e.target.value })}
-                      data-testid="dialog-filter-reporting-manager"
+                      onChange={(value) => setDraftFilters({ ...draftFilters, reportingManager: value })}
+                      placeholder="Select managers..."
+                      testId="dialog-filter-reporting-manager"
                     />
                   </div>
                 </div>
