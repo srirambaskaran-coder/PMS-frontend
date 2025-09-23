@@ -35,8 +35,25 @@ interface CreateGroupFormData {
   description: string;
 }
 
+interface EmployeeFilters {
+  nameOrCode: string;
+  location: string;
+  department: string;
+  level: string;
+  grade: string;
+  reportingManager: string;
+}
+
 export default function AppraisalGroups() {
   const [searchQuery, setSearchQuery] = useState("");
+  const [employeeFilters, setEmployeeFilters] = useState<EmployeeFilters>({
+    nameOrCode: "",
+    location: "",
+    department: "",
+    level: "",
+    grade: "",
+    reportingManager: "",
+  });
   const [employeeSearchQuery, setEmployeeSearchQuery] = useState("");
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [editingGroup, setEditingGroup] = useState<AppraisalGroupWithMembers | null>(null);
@@ -252,16 +269,47 @@ export default function AppraisalGroups() {
   // Filter active employees (assuming all users are active unless explicitly marked inactive)
   const activeEmployees = allUsers.filter(user => !user.isDeleted && user.role !== 'super_admin');
 
-  // Filter active employees based on search query
+  // Filter active employees based on structured filters
   const filteredActiveEmployees = activeEmployees.filter(user => {
-    const query = employeeSearchQuery.toLowerCase();
-    return (user.firstName ?? '').toLowerCase().includes(query) ||
-           (user.lastName ?? '').toLowerCase().includes(query) ||
-           (user.email ?? '').toLowerCase().includes(query) ||
-           (user.code ?? '').toLowerCase().includes(query) ||
-           (user.department ?? '').toLowerCase().includes(query) ||
-           (user.location ?? '').toLowerCase().includes(query) ||
-           (user.level ?? '').toLowerCase().includes(query);
+    // Name or Code filter
+    if (employeeFilters.nameOrCode) {
+      const nameOrCodeQuery = employeeFilters.nameOrCode.toLowerCase();
+      const matchesName = ((user.firstName ?? '') + ' ' + (user.lastName ?? '')).toLowerCase().includes(nameOrCodeQuery);
+      const matchesCode = (user.code ?? '').toLowerCase().includes(nameOrCodeQuery);
+      if (!matchesName && !matchesCode) return false;
+    }
+
+    // Location filter
+    if (employeeFilters.location) {
+      const locationQuery = employeeFilters.location.toLowerCase();
+      if (!(user.location ?? '').toLowerCase().includes(locationQuery)) return false;
+    }
+
+    // Department filter
+    if (employeeFilters.department) {
+      const departmentQuery = employeeFilters.department.toLowerCase();
+      if (!(user.department ?? '').toLowerCase().includes(departmentQuery)) return false;
+    }
+
+    // Level filter
+    if (employeeFilters.level) {
+      const levelQuery = employeeFilters.level.toLowerCase();
+      if (!(user.level ?? '').toLowerCase().includes(levelQuery)) return false;
+    }
+
+    // Grade filter
+    if (employeeFilters.grade) {
+      const gradeQuery = employeeFilters.grade.toLowerCase();
+      if (!(user.grade ?? '').toLowerCase().includes(gradeQuery)) return false;
+    }
+
+    // Reporting Manager filter
+    if (employeeFilters.reportingManager) {
+      const reportingManagerQuery = employeeFilters.reportingManager.toLowerCase();
+      if (!(user.reportingManager ?? '').toLowerCase().includes(reportingManagerQuery)) return false;
+    }
+
+    return true;
   });
 
   // Helper function to get groups for an employee
@@ -399,15 +447,97 @@ export default function AppraisalGroups() {
             </p>
           </CardHeader>
           <CardContent>
-            <div className="relative mb-4">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search employees by name, email, code, department..."
-                value={employeeSearchQuery}
-                onChange={(e) => setEmployeeSearchQuery(e.target.value)}
-                className="pl-10"
-                data-testid="search-employees"
-              />
+            {/* Employee Filters */}
+            <div className="space-y-4 mb-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-2">Employee Name/Code</label>
+                  <Input
+                    placeholder="Enter name or code..."
+                    value={employeeFilters.nameOrCode}
+                    onChange={(e) => setEmployeeFilters({ ...employeeFilters, nameOrCode: e.target.value })}
+                    data-testid="filter-name-code"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium mb-2">Location</label>
+                  <Input
+                    placeholder="Enter location..."
+                    value={employeeFilters.location}
+                    onChange={(e) => setEmployeeFilters({ ...employeeFilters, location: e.target.value })}
+                    data-testid="filter-location"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium mb-2">Department</label>
+                  <Input
+                    placeholder="Enter department..."
+                    value={employeeFilters.department}
+                    onChange={(e) => setEmployeeFilters({ ...employeeFilters, department: e.target.value })}
+                    data-testid="filter-department"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium mb-2">Level</label>
+                  <Input
+                    placeholder="Enter level..."
+                    value={employeeFilters.level}
+                    onChange={(e) => setEmployeeFilters({ ...employeeFilters, level: e.target.value })}
+                    data-testid="filter-level"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium mb-2">Grade</label>
+                  <Input
+                    placeholder="Enter grade..."
+                    value={employeeFilters.grade}
+                    onChange={(e) => setEmployeeFilters({ ...employeeFilters, grade: e.target.value })}
+                    data-testid="filter-grade"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium mb-2">Reporting Manager</label>
+                  <Input
+                    placeholder="Enter manager name..."
+                    value={employeeFilters.reportingManager}
+                    onChange={(e) => setEmployeeFilters({ ...employeeFilters, reportingManager: e.target.value })}
+                    data-testid="filter-reporting-manager"
+                  />
+                </div>
+              </div>
+              
+              {/* Search Button and Clear Filters */}
+              <div className="flex gap-3">
+                <Button 
+                  onClick={() => {
+                    // The filtering is already reactive, so this button can be used for explicit search
+                  }}
+                  className="flex items-center gap-2"
+                  data-testid="search-employees-btn"
+                >
+                  <Search className="h-4 w-4" />
+                  Search Employees
+                </Button>
+                <Button 
+                  variant="outline"
+                  onClick={() => setEmployeeFilters({
+                    nameOrCode: "",
+                    location: "",
+                    department: "",
+                    level: "",
+                    grade: "",
+                    reportingManager: "",
+                  })}
+                  data-testid="clear-filters-btn"
+                >
+                  Clear Filters
+                </Button>
+              </div>
             </div>
 
             {isLoadingUsers ? (
@@ -418,11 +548,11 @@ export default function AppraisalGroups() {
               <div className="text-center py-8">
                 <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                 <h3 className="text-lg font-medium text-muted-foreground mb-2">
-                  {employeeSearchQuery ? "No employees found" : "No active employees"}
+                  {Object.values(employeeFilters).some(filter => filter.trim()) ? "No employees found" : "No active employees"}
                 </h3>
                 <p className="text-sm text-muted-foreground">
-                  {employeeSearchQuery 
-                    ? "Try adjusting your search criteria."
+                  {Object.values(employeeFilters).some(filter => filter.trim()) 
+                    ? "Try adjusting your filter criteria or clear all filters."
                     : "No active employees are currently available."
                   }
                 </p>
