@@ -59,82 +59,94 @@ function SortableQuestion({ question, index, updateQuestion, removeQuestion }: S
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: question.id });
+  } = useSortable({ 
+    id: question.id,
+    // Add data for better drag detection
+    data: {
+      type: 'Question',
+      question,
+    },
+  });
 
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.8 : 1,
+    zIndex: isDragging ? 1000 : 'auto',
   };
 
   return (
-    <Card 
+    <div 
       ref={setNodeRef} 
-      style={style} 
-      className={`p-4 ${isDragging ? 'shadow-lg ring-2 ring-primary/20' : ''}`}
+      style={style}
+      className={`${isDragging ? 'z-50' : ''}`}
     >
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <div 
-              {...attributes} 
-              {...listeners} 
-              className="cursor-grab hover:cursor-grabbing p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700"
-              data-testid={`drag-handle-${question.id}`}
-            >
-              <GripVertical className="h-4 w-4 text-muted-foreground" />
+      <Card className={`p-4 ${isDragging ? 'shadow-lg ring-2 ring-primary/20 bg-background' : ''}`}>
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <button
+                type="button"
+                {...attributes} 
+                {...listeners} 
+                className="cursor-grab hover:cursor-grabbing p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 touch-none"
+                data-testid={`drag-handle-${question.id}`}
+                aria-label={`Drag to reorder question ${index + 1}`}
+              >
+                <GripVertical className="h-4 w-4 text-muted-foreground" />
+              </button>
+              <h4 className="font-medium">Question {index + 1}</h4>
             </div>
-            <h4 className="font-medium">Question {index + 1}</h4>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => removeQuestion(question.id)}
+              data-testid={`remove-question-${question.id}`}
+            >
+              <Minus className="h-4 w-4" />
+            </Button>
           </div>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => removeQuestion(question.id)}
-            data-testid={`remove-question-${question.id}`}
-          >
-            <Minus className="h-4 w-4" />
-          </Button>
-        </div>
-        <div className="grid grid-cols-3 gap-4">
-          <div className="col-span-2">
-            <Input
-              placeholder="Enter question text..."
-              value={question.text}
-              onChange={(e) => updateQuestion(question.id, 'text', e.target.value)}
-              data-testid={`input-question-text-${question.id}`}
+          <div className="grid grid-cols-3 gap-4">
+            <div className="col-span-2">
+              <Input
+                placeholder="Enter question text..."
+                value={question.text}
+                onChange={(e) => updateQuestion(question.id, 'text', e.target.value)}
+                data-testid={`input-question-text-${question.id}`}
+              />
+            </div>
+            <Select
+              value={question.type}
+              onValueChange={(value) => updateQuestion(question.id, 'type', value)}
+            >
+              <SelectTrigger data-testid={`select-question-type-${question.id}`}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="text">Text</SelectItem>
+                <SelectItem value="textarea">Long Text</SelectItem>
+                <SelectItem value="rating">Rating (1-5)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex items-center space-x-2 mt-3">
+            <Checkbox
+              id={`required-${question.id}`}
+              checked={question.required}
+              onCheckedChange={(checked) => updateQuestion(question.id, 'required', checked)}
+              data-testid={`checkbox-question-required-${question.id}`}
             />
+            <label 
+              htmlFor={`required-${question.id}`}
+              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+            >
+              Required
+            </label>
           </div>
-          <Select
-            value={question.type}
-            onValueChange={(value) => updateQuestion(question.id, 'type', value)}
-          >
-            <SelectTrigger data-testid={`select-question-type-${question.id}`}>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="text">Text</SelectItem>
-              <SelectItem value="textarea">Long Text</SelectItem>
-              <SelectItem value="rating">Rating (1-5)</SelectItem>
-            </SelectContent>
-          </Select>
         </div>
-        <div className="flex items-center space-x-2 mt-3">
-          <Checkbox
-            id={`required-${question.id}`}
-            checked={question.required}
-            onCheckedChange={(checked) => updateQuestion(question.id, 'required', checked)}
-            data-testid={`checkbox-question-required-${question.id}`}
-          />
-          <label 
-            htmlFor={`required-${question.id}`}
-            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-          >
-            Required
-          </label>
-        </div>
-      </div>
-    </Card>
+      </Card>
+    </div>
   );
 }
 
@@ -287,10 +299,12 @@ export default function QuestionnaireTemplates() {
       const oldIndex = questions.findIndex((q) => q.id === active.id);
       const newIndex = questions.findIndex((q) => q.id === over.id);
 
-      const newQuestions = arrayMove(questions, oldIndex, newIndex);
-      setQuestions(newQuestions);
-      // Sync form field with local state
-      form.setValue("questions", newQuestions);
+      if (oldIndex !== -1 && newIndex !== -1) {
+        const newQuestions = arrayMove(questions, oldIndex, newIndex);
+        setQuestions(newQuestions);
+        // Sync form field with local state
+        form.setValue("questions", newQuestions);
+      }
     }
   };
 
