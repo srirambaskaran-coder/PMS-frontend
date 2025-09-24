@@ -12,15 +12,18 @@ export function RoleGuard({ allowedRoles, children, fallback }: RoleGuardProps) 
   const { user, isLoading, isAuthenticated } = useAuth();
   const { toast } = useToast();
 
+  // Use active role from session for role switching support
+  const activeRole = (user as any)?.activeRole || (user as any)?.role || "";
+
   useEffect(() => {
-    if (!isLoading && isAuthenticated && user && !allowedRoles.includes(user.role || "")) {
+    if (!isLoading && isAuthenticated && user && !allowedRoles.includes(activeRole)) {
       toast({
         title: "Access Denied",
         description: "You don't have permission to access this page.",
         variant: "destructive",
       });
     }
-  }, [isLoading, isAuthenticated, user, allowedRoles, toast]);
+  }, [isLoading, isAuthenticated, user, allowedRoles, activeRole, toast]);
 
   if (isLoading) {
     return (
@@ -38,7 +41,7 @@ export function RoleGuard({ allowedRoles, children, fallback }: RoleGuardProps) 
     );
   }
 
-  if (!allowedRoles.includes(user.role || "")) {
+  if (!allowedRoles.includes(activeRole)) {
     return fallback || (
       <div className="text-center p-8">
         <p className="text-muted-foreground">You don't have permission to access this page.</p>
