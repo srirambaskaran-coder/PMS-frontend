@@ -113,6 +113,31 @@ export default function Evaluations() {
     },
   });
 
+  const saveDraftMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: any }) => {
+      await apiRequest("PUT", `/api/evaluations/${id}`, {
+        selfEvaluationData: data,
+        status: 'in_progress',
+        // Don't set selfEvaluationSubmittedAt - this keeps it as a draft
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/evaluations"] });
+      setIsViewModalOpen(false);
+      toast({
+        title: "Draft Saved",
+        description: "Your progress has been saved successfully",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: "Failed to save draft",
+        variant: "destructive",
+      });
+    },
+  });
+
   const form = useForm({
     defaultValues: responses,
   });
@@ -151,6 +176,17 @@ export default function Evaluations() {
         questionnaires: selectedEvaluation.questionnaires?.map(q => q.id)
       };
       submitEvaluationMutation.mutate({ id: selectedEvaluation.id, data: evaluationData });
+    }
+  };
+
+  const handleSaveDraft = () => {
+    if (selectedEvaluation) {
+      const evaluationData = {
+        responses,
+        averageRating,
+        questionnaires: selectedEvaluation.questionnaires?.map(q => q.id)
+      };
+      saveDraftMutation.mutate({ id: selectedEvaluation.id, data: evaluationData });
     }
   };
 
@@ -553,50 +589,50 @@ export default function Evaluations() {
                   </CardContent>
                 </Card>
 
-                {/* Average Rating Display */}
-                {averageRating > 0 && (
-                  <Card className="bg-accent/10">
-                    <CardContent className="p-4">
-                      <div className="flex items-center gap-3">
-                        <Star className="h-6 w-6 text-yellow-500" />
-                        <div>
-                          <p className="font-semibold">Current Average Rating</p>
-                          <p className="text-2xl font-bold text-primary">{averageRating.toFixed(1)}/5.0</p>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
-
-                {/* Questionnaires */}
-                {selectedEvaluation.questionnaires && selectedEvaluation.questionnaires.length > 0 ? (
-                  <div className="space-y-6">
-                    {selectedEvaluation.questionnaires.map((questionnaire, index) => (
-                      <Card key={questionnaire.id} className="border-l-4 border-l-primary">
-                        <CardHeader className="pb-3">
-                          <CardTitle className="text-lg">{questionnaire.name}</CardTitle>
-                          {questionnaire.description && (
-                            <CardDescription>{questionnaire.description}</CardDescription>
-                          )}
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                          {getAllQuestions([questionnaire]).map(renderQuestion)}
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
-                ) : (
-                  <Card>
-                    <CardContent className="text-center py-8">
-                      <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                      <p className="text-muted-foreground">No questionnaires assigned to this evaluation</p>
-                    </CardContent>
-                  </Card>
-                )}
-
                 {/* Questions Form */}
                 <Form {...form}>
                   <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+
+                    {/* Average Rating Display */}
+                    {averageRating > 0 && (
+                      <Card className="bg-accent/10">
+                        <CardContent className="p-4">
+                          <div className="flex items-center gap-3">
+                            <Star className="h-6 w-6 text-yellow-500" />
+                            <div>
+                              <p className="font-semibold">Current Average Rating</p>
+                              <p className="text-2xl font-bold text-primary">{averageRating.toFixed(1)}/5.0</p>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
+
+                    {/* Questionnaires */}
+                    {selectedEvaluation.questionnaires && selectedEvaluation.questionnaires.length > 0 ? (
+                      <div className="space-y-6">
+                        {selectedEvaluation.questionnaires.map((questionnaire, index) => (
+                          <Card key={questionnaire.id} className="border-l-4 border-l-primary">
+                            <CardHeader className="pb-3">
+                              <CardTitle className="text-lg">{questionnaire.name}</CardTitle>
+                              {questionnaire.description && (
+                                <CardDescription>{questionnaire.description}</CardDescription>
+                              )}
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                              {getAllQuestions([questionnaire]).map(renderQuestion)}
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </div>
+                    ) : (
+                      <Card>
+                        <CardContent className="text-center py-8">
+                          <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                          <p className="text-muted-foreground">No questionnaires assigned to this evaluation</p>
+                        </CardContent>
+                      </Card>
+                    )}
                     
                     {/* Action Buttons */}
                     <div className="flex gap-3 pt-4 border-t">
@@ -630,10 +666,12 @@ export default function Evaluations() {
                       <Button
                         type="button"
                         variant="outline"
-                        onClick={() => setIsViewModalOpen(false)}
+                        onClick={handleSaveDraft}
                         className="flex-1"
+                        disabled={saveDraftMutation.isPending}
+                        data-testid="save-draft-btn"
                       >
-                        Save Draft
+                        {saveDraftMutation.isPending ? 'Saving...' : 'Save Draft'}
                       </Button>
                       <Button
                         type="submit"
