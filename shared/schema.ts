@@ -204,6 +204,21 @@ export const emailConfig = pgTable("email_config", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Registration table for SaaS onboarding
+export const registrations = pgTable("registrations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name").notNull(),
+  companyName: varchar("company_name").notNull(),
+  designation: varchar("designation").notNull(),
+  email: varchar("email").notNull(),
+  mobile: varchar("mobile").notNull(),
+  status: varchar("status").default('pending'), // pending, contacted, onboarded, rejected
+  notificationSent: boolean("notification_sent").default(false),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Secure access tokens for email links
 export const accessTokens = pgTable("access_tokens", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -638,6 +653,14 @@ export const insertEmailConfigSchema = createInsertSchema(emailConfig).omit({
   updatedAt: true,
 });
 
+export const insertRegistrationSchema = createInsertSchema(registrations).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  notificationSent: true,
+  status: true,
+});
+
 export const insertAccessTokenSchema = createInsertSchema(accessTokens).omit({
   id: true,
   createdAt: true,
@@ -766,6 +789,8 @@ export type EmailTemplate = typeof emailTemplates.$inferSelect;
 export type InsertEmailTemplate = z.infer<typeof insertEmailTemplateSchema>;
 export type EmailConfig = typeof emailConfig.$inferSelect;
 export type InsertEmailConfig = z.infer<typeof insertEmailConfigSchema>;
+export type Registration = typeof registrations.$inferSelect;
+export type InsertRegistration = z.infer<typeof insertRegistrationSchema>;
 export type AccessToken = typeof accessTokens.$inferSelect;
 export type InsertAccessToken = z.infer<typeof insertAccessTokenSchema>;
 

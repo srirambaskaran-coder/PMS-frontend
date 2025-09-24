@@ -7,6 +7,7 @@ import {
   evaluations,
   emailTemplates,
   emailConfig,
+  registrations,
   accessTokens,
   levels,
   grades,
@@ -38,6 +39,8 @@ import {
   type InsertEmailTemplate,
   type EmailConfig,
   type InsertEmailConfig,
+  type Registration,
+  type InsertRegistration,
   type AccessToken,
   type InsertAccessToken,
   type Level,
@@ -142,6 +145,12 @@ export interface IStorage {
   getEmailConfig(): Promise<EmailConfig | undefined>;
   createEmailConfig(config: InsertEmailConfig): Promise<EmailConfig>;
   updateEmailConfig(id: string, config: Partial<InsertEmailConfig>): Promise<EmailConfig>;
+  
+  // Registration operations - SaaS onboarding
+  getRegistrations(): Promise<Registration[]>;
+  getRegistration(id: string): Promise<Registration | undefined>;
+  createRegistration(registration: InsertRegistration): Promise<Registration>;
+  updateRegistration(id: string, registration: Partial<Registration>): Promise<Registration>;
   
   // Settings operations
   changePassword(userId: string, currentPassword: string, newPassword: string): Promise<void>;
@@ -881,6 +890,30 @@ export class DatabaseStorage implements IStorage {
       .where(eq(emailConfig.id, id))
       .returning();
     return updatedConfig;
+  }
+
+  // Registration operations - SaaS onboarding
+  async getRegistrations(): Promise<Registration[]> {
+    return await db.select().from(registrations).orderBy(desc(registrations.createdAt));
+  }
+
+  async getRegistration(id: string): Promise<Registration | undefined> {
+    const [registration] = await db.select().from(registrations).where(eq(registrations.id, id));
+    return registration;
+  }
+
+  async createRegistration(registration: InsertRegistration): Promise<Registration> {
+    const [newRegistration] = await db.insert(registrations).values(registration).returning();
+    return newRegistration;
+  }
+
+  async updateRegistration(id: string, registration: Partial<Registration>): Promise<Registration> {
+    const [updatedRegistration] = await db
+      .update(registrations)
+      .set({ ...registration, updatedAt: new Date() })
+      .where(eq(registrations.id, id))
+      .returning();
+    return updatedRegistration;
   }
 
   // Access token operations

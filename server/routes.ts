@@ -12,6 +12,7 @@ import {
   insertEvaluationSchema,
   insertEmailTemplateSchema,
   insertEmailConfigSchema,
+  insertRegistrationSchema,
   insertLevelSchema,
   insertGradeSchema,
   insertDepartmentSchema,
@@ -28,12 +29,80 @@ import {
   type SafeUser,
 } from "@shared/schema";
 import { sendEmail, sendReviewInvitation, sendReviewReminder, sendReviewCompletion } from "./emailService";
+import emailService from "./emailService";
 import { ObjectStorageService } from "./objectStorage";
 import { seedTestUsers, testUsers } from "./seedUsers";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
   await setupAuth(app);
+
+  // Public registration route (no authentication required)
+  app.post('/api/registration', async (req, res) => {
+    try {
+      const registrationData = insertRegistrationSchema.parse(req.body);
+      
+      // Create registration record
+      const registration = await storage.createRegistration(registrationData);
+      
+      // Send notification email to kiran.shetty@refur.app
+      try {
+        const { subject, html } = emailService.generateRegistrationNotificationEmail(
+          registrationData.name,
+          registrationData.companyName,
+          registrationData.designation,
+          registrationData.email,
+          registrationData.mobile
+        );
+        
+        await sendEmail({
+          to: 'kiran.shetty@refur.app',
+          subject,
+          html
+        });
+        
+        // Mark notification as sent
+        await storage.updateRegistration(registration.id, { notificationSent: true });
+      } catch (emailError) {
+        console.error('Failed to send registration notification email:', emailError);
+        // Don't fail the registration if email fails, just log it
+      }
+      
+      res.status(201).json({ 
+        message: 'Registration submitted successfully. We will contact you soon.',
+        id: registration.id 
+      });
+    } catch (error) {
+      console.error('Error processing registration:', error);
+      res.status(500).json({ message: 'Failed to submit registration. Please try again later.' });
+    }
+  });
+
+  // Company login route (no authentication required)
+  app.post('/api/login/company', async (req, res) => {
+    try {
+      const { companyUrl, email, password } = req.body;
+      
+      if (!companyUrl || !email || !password) {
+        return res.status(400).json({ message: 'Company URL, email, and password are required.' });
+      }
+      
+      // For now, redirect to the regular login flow
+      // In a full multi-tenant implementation, this would:
+      // 1. Validate the company URL exists
+      // 2. Authenticate against the company's user database
+      // 3. Set appropriate session context
+      
+      // Temporary implementation - redirect to existing auth flow
+      res.status(400).json({ 
+        message: 'Company-specific login not yet implemented. Please use the development login for now.',
+        redirectTo: '/api/login'
+      });
+    } catch (error) {
+      console.error('Error in company login:', error);
+      res.status(500).json({ message: 'Login failed. Please try again later.' });
+    }
+  });
 
   // Auth routes
   app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
