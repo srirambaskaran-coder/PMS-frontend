@@ -52,6 +52,10 @@ interface Question {
   weight?: number;
 }
 
+interface EnhancedQuestion extends Question {
+  questionnaireName?: string;
+}
+
 interface QuestionResponse {
   questionId: string;
   response: string;
@@ -235,7 +239,7 @@ export default function Evaluations() {
   };
 
   // Get all questions from questionnaires
-  const getAllQuestions = (questionnaires: QuestionnaireTemplate[]): Question[] => {
+  const getAllQuestions = (questionnaires: QuestionnaireTemplate[]): EnhancedQuestion[] => {
     if (!questionnaires || !Array.isArray(questionnaires)) {
       return [];
     }
@@ -253,7 +257,7 @@ export default function Evaluations() {
     });
   };
 
-  const renderQuestion = (question: Question) => {
+  const renderQuestion = (question: EnhancedQuestion) => {
     const questionKey = question.id;
     const currentResponse = responses[questionKey] || { questionId: questionKey, response: '', rating: undefined, remarks: '' };
 
