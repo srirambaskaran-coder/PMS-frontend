@@ -249,11 +249,13 @@ export default function Evaluations() {
         return [];
       }
       
-      return questionnaire.questions.map((question, index) => ({
-        ...question,
-        id: `${questionnaire.id}_${question.id || index}`,
-        questionnaireName: questionnaire.name
-      }));
+      return questionnaire.questions
+        .filter(question => question && typeof question === 'object')
+        .map((question, index) => ({
+          ...question,
+          id: `${questionnaire.id}_${question.id || index}`,
+          questionnaireName: questionnaire.name
+        })) as EnhancedQuestion[];
     });
   };
 
