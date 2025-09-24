@@ -345,7 +345,7 @@ export const initiatedAppraisals = pgTable("initiated_appraisals", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   appraisalGroupId: varchar("appraisal_group_id").notNull(),
   appraisalType: appraisalTypeEnum("appraisal_type").notNull(),
-  questionnaireTemplateId: varchar("questionnaire_template_id"), // For questionnaire_based
+  questionnaireTemplateIds: text("questionnaire_template_ids").array().default(sql`ARRAY[]::text[]`), // For questionnaire_based
   documentUrl: varchar("document_url"), // For uploaded documents (MBO/KPI)
   frequencyCalendarId: varchar("frequency_calendar_id"),
   daysToInitiate: integer("days_to_initiate").default(0), // Days after calendar period end
@@ -362,7 +362,7 @@ export const initiatedAppraisals = pgTable("initiated_appraisals", {
 }, (table) => [
   index("initiated_appraisals_group_id_idx").on(table.appraisalGroupId),
   index("initiated_appraisals_created_by_id_idx").on(table.createdById),
-  check("initiated_appraisals_template_check", sql`(${table.appraisalType} NOT IN ('questionnaire_based', 'mbo_based')) OR (${table.questionnaireTemplateId} IS NOT NULL OR ${table.documentUrl} IS NOT NULL)`),
+  check("initiated_appraisals_template_check", sql`(${table.appraisalType} NOT IN ('questionnaire_based', 'mbo_based')) OR (array_length(${table.questionnaireTemplateIds}, 1) > 0 OR ${table.documentUrl} IS NOT NULL)`),
 ]);
 
 // Initiated Appraisal Detail Timings - Per frequency calendar detail timing configurations
