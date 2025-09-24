@@ -266,7 +266,18 @@ export default function InitiateAppraisal() {
   const handleInitiateAppraisal = (group: AppraisalGroupWithMembers) => {
     setSelectedGroup(group);
     setIsInitiateFormOpen(true);
-    form.reset();
+    form.reset({
+      appraisalType: 'questionnaire_based',
+      questionnaireTemplateIds: [],
+      calendarDetailTimings: [],
+      daysToInitiate: 0,
+      daysToClose: 30,
+      numberOfReminders: 3,
+      excludeTenureLessThanYear: false,
+      excludedEmployeeIds: [],
+      makePublic: false,
+      publishType: 'now',
+    });
     setUploadedFile(null);
     setSelectedCalendarId(null);
   };
@@ -764,7 +775,8 @@ export default function InitiateAppraisal() {
                                   min="0"
                                   max="365"
                                   placeholder="0"
-                                  {...field}
+                                  value={field.value || 0}
+                                  onChange={(e) => field.onChange(Number(e.target.value))}
                                   data-testid="input-days-to-initiate"
                                 />
                               </FormControl>
@@ -788,7 +800,8 @@ export default function InitiateAppraisal() {
                                   min="1"
                                   max="365"
                                   placeholder="30"
-                                  {...field}
+                                  value={field.value || 30}
+                                  onChange={(e) => field.onChange(Number(e.target.value))}
                                   data-testid="input-days-to-close"
                                 />
                               </FormControl>
@@ -806,16 +819,20 @@ export default function InitiateAppraisal() {
                           render={({ field }) => (
                             <FormItem>
                               <FormLabel>Number of Reminders</FormLabel>
-                              <FormControl>
-                                <Input
-                                  type="number"
-                                  min="1"
-                                  max="10"
-                                  placeholder="3"
-                                  {...field}
-                                  data-testid="input-number-of-reminders"
-                                />
-                              </FormControl>
+                              <Select onValueChange={field.onChange} value={field.value?.toString()}>
+                                <FormControl>
+                                  <SelectTrigger data-testid="select-number-of-reminders">
+                                    <SelectValue placeholder="3" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  {Array.from({length: 10}, (_, i) => i + 1).map((num) => (
+                                    <SelectItem key={num} value={num.toString()}>
+                                      {num} reminder{num > 1 ? 's' : ''}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
                               <FormDescription>
                                 Automatic reminders (1-10)
                               </FormDescription>
