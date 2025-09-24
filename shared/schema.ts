@@ -164,6 +164,7 @@ export const evaluations = pgTable("evaluations", {
   employeeId: varchar("employee_id").notNull(),
   managerId: varchar("manager_id").notNull(),
   reviewCycleId: varchar("review_cycle_id").notNull(),
+  initiatedAppraisalId: varchar("initiated_appraisal_id"), // Direct link to initiated appraisal for accurate progress tracking
   selfEvaluationData: jsonb("self_evaluation_data"), // Employee responses
   selfEvaluationSubmittedAt: timestamp("self_evaluation_submitted_at"),
   managerEvaluationData: jsonb("manager_evaluation_data"), // Manager responses
@@ -453,6 +454,10 @@ export const evaluationsRelations = relations(evaluations, ({ one }) => ({
     fields: [evaluations.reviewCycleId],
     references: [reviewCycles.id],
   }),
+  initiatedAppraisal: one(initiatedAppraisals, {
+    fields: [evaluations.initiatedAppraisalId],
+    references: [initiatedAppraisals.id],
+  }),
 }));
 
 // Relations for new entities
@@ -560,6 +565,14 @@ export const questionnaireTemplatesRelations = relations(questionnaireTemplates,
   }),
   publishQuestionnaires: many(publishQuestionnaires),
   reviewCycles: many(reviewCycles),
+}));
+
+export const initiatedAppraisalsRelations = relations(initiatedAppraisals, ({ one, many }) => ({
+  createdBy: one(users, {
+    fields: [initiatedAppraisals.createdById],
+    references: [users.id],
+  }),
+  evaluations: many(evaluations),
 }));
 
 // Insert schemas
