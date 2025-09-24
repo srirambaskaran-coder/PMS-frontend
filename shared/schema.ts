@@ -719,6 +719,12 @@ export const roleUpdateSchema = z.object({
   roles: z.array(z.enum(['super_admin', 'admin', 'hr_manager', 'employee', 'manager'])).optional()
 }).strict();
 
+// Send Reminder Request Schema
+export const sendReminderRequestSchema = z.object({
+  employeeId: z.string().min(1, "Employee ID is required"),
+  initiatedAppraisalId: z.string().min(1, "Initiated Appraisal ID is required"),
+}).strict();
+
 // Upsert user schema for Replit Auth
 export const upsertUserSchema = createInsertSchema(users).pick({
   id: true,

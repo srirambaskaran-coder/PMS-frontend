@@ -24,6 +24,7 @@ import {
   insertAppraisalGroupMemberSchema,
   updateUserSchema,
   passwordUpdateSchema,
+  sendReminderRequestSchema,
   type SafeUser,
 } from "@shared/schema";
 import { sendEmail, sendReviewInvitation, sendReviewReminder, sendReviewCompletion } from "./emailService";
@@ -1952,6 +1953,70 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(404).json({ message: "Not found" });
     });
   }
+
+  // Send Reminder Email endpoint
+  app.post('/api/send-reminder', isAuthenticated, requireRoles(['hr_manager']), async (req: any, res) => {
+    try {
+      const requestingUserId = req.user.claims.sub;
+      
+      // Validate request body with Zod schema
+      const { employeeId, initiatedAppraisalId } = sendReminderRequestSchema.parse(req.body);
+
+      // Get employee details
+      const employee = await storage.getUser(employeeId, requestingUserId);
+      if (!employee) {
+        return res.status(404).json({ message: "Employee not found" });
+      }
+
+      // Verify the initiated appraisal exists and belongs to the requesting HR manager
+      const userAppraisals = await storage.getInitiatedAppraisals(requestingUserId);
+      const targetAppraisal = userAppraisals.find(appraisal => appraisal.id === initiatedAppraisalId);
+      
+      if (!targetAppraisal) {
+        return res.status(403).json({ message: "Initiated appraisal not found or access denied" });
+      }
+
+      // Verify the employee is part of this appraisal and needs a reminder
+      const progress = targetAppraisal.progress;
+      if (!progress || !progress.employeeProgress) {
+        return res.status(400).json({ message: "No progress data available for this appraisal" });
+      }
+
+      const employeeProgress = progress.employeeProgress.find((ep: any) => ep.employee.id === employeeId);
+      if (!employeeProgress) {
+        return res.status(403).json({ message: "Employee is not part of this appraisal" });
+      }
+
+      if (employeeProgress.status === 'completed') {
+        return res.status(400).json({ message: "Employee has already completed their evaluation" });
+      }
+
+      // Calculate due date (7 days from now as default)
+      const dueDate = new Date();
+      dueDate.setDate(dueDate.getDate() + 7);
+      const formattedDueDate = dueDate.toLocaleDateString();
+
+      // Send reminder email
+      await sendReviewReminder(
+        employee.email,
+        `${employee.firstName} ${employee.lastName}`,
+        formattedDueDate
+      );
+
+      res.json({ 
+        message: "Reminder sent successfully",
+        employeeName: `${employee.firstName} ${employee.lastName}`,
+        employeeEmail: employee.email,
+        dueDate: formattedDueDate
+      });
+    } catch (error) {
+      console.error("Error sending reminder:", error);
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ message: "Invalid request data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to send reminder" });
+    }
+  });
 
   const httpServer = createServer(app);
   return httpServer;

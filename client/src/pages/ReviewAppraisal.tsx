@@ -21,10 +21,14 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Calendar, Filter, Mail, ChevronDown, ChevronRight, Users } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function ReviewAppraisal() {
+  const { toast } = useToast();
+  
   const [filters, setFilters] = useState({
     appraisalGroup: "all",
     employee: "",
@@ -67,6 +71,33 @@ export default function ReviewAppraisal() {
     queryKey: ["/api/users?role=manager"],
   });
 
+  // Send reminder mutation
+  const sendReminderMutation = useMutation({
+    mutationFn: async ({ employeeId, initiatedAppraisalId }: { employeeId: string; initiatedAppraisalId: string }) => {
+      const response = await apiRequest("POST", "/api/send-reminder", { employeeId, initiatedAppraisalId });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: "An error occurred" }));
+        throw new Error(errorData.message || "Failed to send reminder");
+      }
+      
+      return response.json();
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Reminder Sent",
+        description: `Reminder email sent to ${data.employeeName} (${data.employeeEmail})`,
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Failed to Send Reminder",
+        description: error.message || "An error occurred while sending the reminder",
+        variant: "destructive",
+      });
+    },
+  });
+
   const toggleGroupExpansion = (groupId: string) => {
     const newExpanded = new Set(expandedGroups);
     if (newExpanded.has(groupId)) {
@@ -77,9 +108,8 @@ export default function ReviewAppraisal() {
     setExpandedGroups(newExpanded);
   };
 
-  const sendReminder = (employeeId: string) => {
-    // TODO: Implement send reminder functionality
-    console.log("Sending reminder to employee:", employeeId);
+  const sendReminder = (employeeId: string, initiatedAppraisalId: string) => {
+    sendReminderMutation.mutate({ employeeId, initiatedAppraisalId });
   };
 
   if (isLoading) {
@@ -371,8 +401,9 @@ export default function ReviewAppraisal() {
                                         <Button
                                           variant="outline"
                                           size="sm"
-                                          onClick={() => sendReminder(employeeProgress.employee.id)}
+                                          onClick={() => sendReminder(employeeProgress.employee.id, appraisal.id)}
                                           data-testid={`button-send-reminder-${employeeProgress.employee.id}`}
+                                          disabled={sendReminderMutation.isPending}
                                         >
                                           <Mail className="h-4 w-4 mr-1" />
                                           Send Reminder
