@@ -331,21 +331,14 @@ export default function Evaluations() {
                   <p className="text-sm text-muted-foreground mt-1">From: {question.questionnaireName}</p>
                 )}
               </div>
-              <Textarea
-                value={currentResponse.response}
-                onChange={(e) => updateResponse('response', e.target.value)}
-                placeholder="Enter your detailed response..."
-                className="min-h-[100px]"
-                data-testid={`question-response-${question.id}`}
-              />
               <div>
-                <FormLabel className="text-sm">Self Remarks (Optional)</FormLabel>
+                <FormLabel className="text-sm">Self Remarks</FormLabel>
                 <Textarea
-                  value={currentResponse.remarks || ''}
-                  onChange={(e) => updateResponse('remarks', e.target.value)}
-                  placeholder="Add any additional comments or context..."
-                  className="min-h-[60px] mt-1"
-                  data-testid={`question-remarks-${question.id}`}
+                  value={currentResponse.response}
+                  onChange={(e) => updateResponse('response', e.target.value)}
+                  placeholder="Enter your detailed response..."
+                  className="min-h-[100px] mt-1"
+                  data-testid={`question-response-${question.id}`}
                 />
               </div>
             </div>
@@ -362,44 +355,32 @@ export default function Evaluations() {
                   <p className="text-sm text-muted-foreground mt-1">From: {question.questionnaireName}</p>
                 )}
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <FormLabel className="text-sm">Rating</FormLabel>
-                  <Select
-                    value={currentResponse.rating?.toString() || ''}
-                    onValueChange={(value) => updateResponse('rating', parseInt(value))}
-                  >
-                    <SelectTrigger data-testid={`question-rating-${question.id}`}>
-                      <SelectValue placeholder="Select rating" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="1">1 - Below Expectations</SelectItem>
-                      <SelectItem value="2">2 - Meets Some Expectations</SelectItem>
-                      <SelectItem value="3">3 - Meets Expectations</SelectItem>
-                      <SelectItem value="4">4 - Exceeds Expectations</SelectItem>
-                      <SelectItem value="5">5 - Outstanding</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <FormLabel className="text-sm">Self Assessment</FormLabel>
-                  <Textarea
-                    value={currentResponse.response}
-                    onChange={(e) => updateResponse('response', e.target.value)}
-                    placeholder="Explain your rating..."
-                    className="min-h-[80px]"
-                    data-testid={`question-response-${question.id}`}
-                  />
-                </div>
+              <div>
+                <FormLabel className="text-sm">Rating</FormLabel>
+                <Select
+                  value={currentResponse.rating?.toString() || ''}
+                  onValueChange={(value) => updateResponse('rating', parseInt(value))}
+                >
+                  <SelectTrigger data-testid={`question-rating-${question.id}`}>
+                    <SelectValue placeholder="Select rating" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1">1 - Below Expectations</SelectItem>
+                    <SelectItem value="2">2 - Meets Some Expectations</SelectItem>
+                    <SelectItem value="3">3 - Meets Expectations</SelectItem>
+                    <SelectItem value="4">4 - Exceeds Expectations</SelectItem>
+                    <SelectItem value="5">5 - Outstanding</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div>
-                <FormLabel className="text-sm">Additional Remarks (Optional)</FormLabel>
+                <FormLabel className="text-sm">Self Assessment</FormLabel>
                 <Textarea
-                  value={currentResponse.remarks || ''}
-                  onChange={(e) => updateResponse('remarks', e.target.value)}
-                  placeholder="Add any additional comments..."
-                  className="min-h-[60px] mt-1"
-                  data-testid={`question-remarks-${question.id}`}
+                  value={currentResponse.response}
+                  onChange={(e) => updateResponse('response', e.target.value)}
+                  placeholder="Explain your rating..."
+                  className="min-h-[80px] mt-1"
+                  data-testid={`question-response-${question.id}`}
                 />
               </div>
             </div>
@@ -416,20 +397,14 @@ export default function Evaluations() {
                   <p className="text-sm text-muted-foreground mt-1">From: {question.questionnaireName}</p>
                 )}
               </div>
-              <Input
-                value={currentResponse.response}
-                onChange={(e) => updateResponse('response', e.target.value)}
-                placeholder="Enter your response..."
-                data-testid={`question-response-${question.id}`}
-              />
               <div>
-                <FormLabel className="text-sm">Self Remarks (Optional)</FormLabel>
-                <Textarea
-                  value={currentResponse.remarks || ''}
-                  onChange={(e) => updateResponse('remarks', e.target.value)}
-                  placeholder="Add any additional comments..."
-                  className="min-h-[60px] mt-1"
-                  data-testid={`question-remarks-${question.id}`}
+                <FormLabel className="text-sm">Self Remarks</FormLabel>
+                <Input
+                  value={currentResponse.response}
+                  onChange={(e) => updateResponse('response', e.target.value)}
+                  placeholder="Enter your response..."
+                  className="mt-1"
+                  data-testid={`question-response-${question.id}`}
                 />
               </div>
             </div>
@@ -653,15 +628,6 @@ export default function Evaluations() {
                       >
                         <Download className="h-4 w-4 mr-2" />
                         Export DOCX
-                      </Button>
-                      <Button
-                        type="button"
-                        onClick={() => setShowMeetingScheduler(true)}
-                        variant="outline"
-                        data-testid="schedule-meeting-btn"
-                      >
-                        <Calendar className="h-4 w-4 mr-2" />
-                        Schedule Meeting
                       </Button>
                       <Button
                         type="button"
