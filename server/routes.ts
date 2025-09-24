@@ -86,17 +86,69 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: 'Company URL, email, and password are required.' });
       }
       
-      // For now, redirect to the regular login flow
-      // In a full multi-tenant implementation, this would:
-      // 1. Validate the company URL exists
-      // 2. Authenticate against the company's user database
-      // 3. Set appropriate session context
+      // 1. Find company by URL slug
+      const normalizedUrl = companyUrl.toLowerCase().trim();
+      const company = await storage.getCompanyByUrl(normalizedUrl);
       
-      // Temporary implementation - redirect to existing auth flow
-      res.status(400).json({ 
-        message: 'Company-specific login not yet implemented. Please use the development login for now.',
-        redirectTo: '/api/login'
+      if (!company) {
+        return res.status(400).json({ message: 'Invalid company URL. Please check your company URL and try again.' });
+      }
+      
+      // 2. Find user by email and verify they belong to this company
+      const user = await storage.getUserByEmail(email.toLowerCase());
+      
+      console.log(`Company login attempt - Email: ${email}, Company: ${normalizedUrl}, Company ID: ${company.id}`);
+      console.log(`Found user:`, user ? `${user.email} (ID: ${user.id}, Company: ${user.companyId})` : 'Not found');
+      console.log(`User has password hash:`, user ? (user.passwordHash ? 'YES' : 'NO') : 'N/A');
+      
+      // Verify user belongs to this company
+      if (!user || user.companyId !== company.id) {
+        console.log(`User company mismatch - Expected: ${company.id}, Got: ${user?.companyId}`);
+        return res.status(401).json({ message: 'Invalid email or password, or user not found in this company.' });
+      }
+      
+      // 3. Verify password
+      if (!user.passwordHash) {
+        return res.status(401).json({ message: 'Password not set for this account. Please contact your administrator.' });
+      }
+      
+      const bcrypt = await import('bcrypt');
+      const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
+      
+      if (!isPasswordValid) {
+        return res.status(401).json({ message: 'Invalid email or password.' });
+      }
+      
+      // 4. Create session (using Passport login mechanism)
+      const userSession = {
+        claims: {
+          sub: user.id,
+          email: user.email,
+          first_name: user.firstName,
+          last_name: user.lastName,
+          profile_image_url: user.profileImageUrl
+        },
+        access_token: 'company-login-token', // Placeholder token for company login
+        refresh_token: 'company-login-refresh', // Placeholder refresh token
+        expires_at: Math.floor(Date.now() / 1000) + 86400 // 24 hours from now
+      };
+      
+      // Use Passport's login mechanism to properly authenticate the user
+      req.login(userSession, (err) => {
+        if (err) {
+          console.error('Error establishing session:', err);
+          return res.status(500).json({ message: 'Login failed. Please try again later.' });
+        }
+        
+        // 5. Return success with user data
+        const { passwordHash, ...safeUser } = user;
+        res.json({ 
+          message: 'Login successful',
+          user: safeUser,
+          companyUrl: normalizedUrl
+        });
       });
+      
     } catch (error) {
       console.error('Error in company login:', error);
       res.status(500).json({ message: 'Login failed. Please try again later.' });

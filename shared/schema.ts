@@ -107,6 +107,7 @@ export const companies = pgTable("companies", {
   gstNumber: varchar("gst_number"),
   logoUrl: varchar("logo_url"),
   url: varchar("url"),
+  companyUrl: varchar("company_url").unique(), // URL slug for company login (e.g., 'hfactor')
   status: statusEnum("status").default('active'),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),

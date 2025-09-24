@@ -8,8 +8,9 @@ import { Building, Users, ClipboardList, BarChart3, Shield, Globe, Clock } from 
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { useParams } from "wouter";
 
 const registrationSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
@@ -32,6 +33,7 @@ export default function Landing() {
   const [isRegisterOpen, setIsRegisterOpen] = useState(false);
   const [isLoginOpen, setIsLoginOpen] = useState(false);
   const { toast } = useToast();
+  const params = useParams() as { companyUrl?: string };
 
   const registerForm = useForm<RegistrationForm>({
     resolver: zodResolver(registrationSchema),
@@ -52,6 +54,15 @@ export default function Landing() {
       password: "",
     },
   });
+
+  // Pre-fill company URL if accessed via /company/:companyUrl
+  useEffect(() => {
+    if (params.companyUrl) {
+      loginForm.setValue('companyUrl', params.companyUrl);
+      // Auto-open login modal if accessed via company URL
+      setIsLoginOpen(true);
+    }
+  }, [params.companyUrl, loginForm]);
 
   const onRegisterSubmit = async (data: RegistrationForm) => {
     try {
@@ -89,11 +100,22 @@ export default function Landing() {
       });
 
       if (response.ok) {
-        window.location.href = '/dashboard';
+        const result = await response.json();
+        toast({
+          title: "Login Successful",
+          description: `Welcome back! Redirecting to your dashboard...`,
+        });
+        setIsLoginOpen(false);
+        loginForm.reset();
+        // Use setTimeout to allow toast to show before redirect
+        setTimeout(() => {
+          window.location.href = '/';
+        }, 1000);
       } else {
+        const errorData = await response.json();
         toast({
           title: "Login Failed",
-          description: "Invalid credentials. Please check your company URL, email, and password.",
+          description: errorData.message || "Please check your company URL, email, and password.",
           variant: "destructive"
         });
       }
