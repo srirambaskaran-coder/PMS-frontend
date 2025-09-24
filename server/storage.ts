@@ -1773,7 +1773,7 @@ export class DatabaseStorage implements IStorage {
     ).orderBy(asc(initiatedAppraisalDetailTimings.createdAt));
   }
 
-  async getInitiatedAppraisals(createdById: string): Promise<InitiatedAppraisal[]> {
+  async getInitiatedAppraisals(createdById: string): Promise<(InitiatedAppraisal & { progress?: any })[]> {
     return await db
       .select({
         initiatedAppraisal: initiatedAppraisals,
@@ -1783,12 +1783,135 @@ export class DatabaseStorage implements IStorage {
       .leftJoin(appraisalGroups, eq(initiatedAppraisals.appraisalGroupId, appraisalGroups.id))
       .where(eq(initiatedAppraisals.createdById, createdById))
       .orderBy(desc(initiatedAppraisals.createdAt))
-      .then(results => 
-        results.map(result => ({
-          ...result.initiatedAppraisal,
-          appraisalGroup: result.appraisalGroup,
-        }))
+      .then(async results => {
+        const appraisalsWithProgress = await Promise.all(
+          results.map(async result => {
+            const appraisal = {
+              ...result.initiatedAppraisal,
+              appraisalGroup: result.appraisalGroup,
+            };
+
+            // Get progress data for this appraisal
+            const progressData = await this.getAppraisalProgress(appraisal.id, appraisal.appraisalGroupId);
+            
+            return {
+              ...appraisal,
+              progress: progressData,
+            };
+          })
+        );
+        
+        return appraisalsWithProgress;
+      });
+  }
+
+  async getAppraisalProgress(appraisalId: string, appraisalGroupId: string): Promise<any> {
+    // Get all members of the appraisal group
+    const members = await db
+      .select({
+        user: users,
+      })
+      .from(appraisalGroupMembers)
+      .leftJoin(users, eq(appraisalGroupMembers.userId, users.id))
+      .where(and(
+        eq(appraisalGroupMembers.appraisalGroupId, appraisalGroupId),
+        eq(users.status, 'active')
+      ));
+
+    if (members.length === 0) {
+      return {
+        totalEmployees: 0,
+        completedEvaluations: 0,
+        percentage: 0,
+        employeeProgress: [],
+      };
+    }
+
+    const memberUsers = members.filter(m => m.user !== null).map(m => m.user!);
+    
+    // Get evaluations for these employees
+    // Note: This is a simplified approach - in a real system, you'd need to link
+    // initiated appraisals to review cycles or have a direct relationship
+    const employeeIds = memberUsers.map(user => user.id);
+    
+    // Get the initiated appraisal details to filter evaluations by date
+    const initiatedAppraisal = await db
+      .select()
+      .from(initiatedAppraisals)
+      .where(eq(initiatedAppraisals.id, appraisalId))
+      .limit(1);
+
+    if (initiatedAppraisal.length === 0) {
+      return {
+        totalEmployees: memberUsers.length,
+        completedEvaluations: 0,
+        percentage: 0,
+        employeeProgress: memberUsers.map(user => ({
+          employee: {
+            id: user.id,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            designation: user.designation,
+            department: user.department,
+          },
+          evaluation: null,
+          status: 'not_started',
+          isCompleted: false,
+        })),
+      };
+    }
+
+    const appraisalCreatedAt = initiatedAppraisal[0].createdAt;
+
+    // Get evaluations for these employees that were created after this appraisal was initiated
+    const memberEvaluations = await db
+      .select()
+      .from(evaluations)
+      .where(
+        and(
+          inArray(evaluations.employeeId, employeeIds),
+          sql`${evaluations.createdAt} >= ${appraisalCreatedAt}`
+        )
       );
+
+    // Group evaluations by employee
+    const evaluationsByEmployee = new Map();
+    memberEvaluations.forEach(evaluation => {
+      if (!evaluationsByEmployee.has(evaluation.employeeId)) {
+        evaluationsByEmployee.set(evaluation.employeeId, []);
+      }
+      evaluationsByEmployee.get(evaluation.employeeId).push(evaluation);
+    });
+
+    // Calculate progress for each employee
+    const employeeProgress = memberUsers.map(user => {
+      const userEvaluations = evaluationsByEmployee.get(user.id) || [];
+      const latestEvaluation = userEvaluations
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+
+      return {
+        employee: {
+          id: user.id,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          designation: user.designation,
+          department: user.department,
+        },
+        evaluation: latestEvaluation,
+        status: latestEvaluation?.status || 'not_started',
+        isCompleted: latestEvaluation?.status === 'completed',
+      };
+    });
+
+    const completedCount = employeeProgress.filter(ep => ep.isCompleted).length;
+    const percentage = memberUsers.length > 0 ? Math.round((completedCount / memberUsers.length) * 100) : 0;
+
+    return {
+      totalEmployees: memberUsers.length,
+      completedEvaluations: completedCount,
+      percentage,
+      employeeProgress,
+    };
   }
 }
 

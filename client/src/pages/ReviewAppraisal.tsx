@@ -317,10 +317,10 @@ export default function ReviewAppraisal() {
                         <div className="text-right">
                           <div className="text-sm text-muted-foreground">Progress</div>
                           <div className="font-semibold" data-testid={`progress-text-${appraisal.id}`}>
-                            0/0 (0%)
+                            {appraisal.progress?.completedEvaluations || 0}/{appraisal.progress?.totalEmployees || 0} ({appraisal.progress?.percentage || 0}%)
                           </div>
                         </div>
-                        <Progress value={0} className="w-32" data-testid={`progress-bar-${appraisal.id}`} />
+                        <Progress value={appraisal.progress?.percentage || 0} className="w-32" data-testid={`progress-bar-${appraisal.id}`} />
                         <Badge variant="outline" data-testid={`status-badge-${appraisal.id}`}>
                           {appraisal.status}
                         </Badge>
@@ -343,12 +343,51 @@ export default function ReviewAppraisal() {
                               </TableRow>
                             </TableHeader>
                             <TableBody>
-                              {/* Placeholder - will be populated with actual employee data */}
-                              <TableRow data-testid={`employee-row-placeholder-${appraisal.id}`}>
-                                <TableCell colSpan={5} className="text-center text-muted-foreground">
-                                  No employee progress data available
-                                </TableCell>
-                              </TableRow>
+                              {appraisal.progress?.employeeProgress?.length > 0 ? (
+                                appraisal.progress.employeeProgress.map((employeeProgress: any, index: number) => (
+                                  <TableRow key={employeeProgress.employee.id} data-testid={`employee-row-${appraisal.id}-${employeeProgress.employee.id}`}>
+                                    <TableCell data-testid={`employee-name-${employeeProgress.employee.id}`}>
+                                      {employeeProgress.employee.firstName} {employeeProgress.employee.lastName}
+                                    </TableCell>
+                                    <TableCell data-testid={`employee-department-${employeeProgress.employee.id}`}>
+                                      {employeeProgress.employee.department || 'N/A'}
+                                    </TableCell>
+                                    <TableCell data-testid={`employee-manager-${employeeProgress.employee.id}`}>
+                                      {employeeProgress.evaluation?.managerId || 'N/A'}
+                                    </TableCell>
+                                    <TableCell data-testid={`employee-status-${employeeProgress.employee.id}`}>
+                                      <Badge
+                                        variant={
+                                          employeeProgress.status === 'completed' ? 'default' :
+                                          employeeProgress.status === 'in_progress' ? 'secondary' :
+                                          employeeProgress.status === 'overdue' ? 'destructive' : 'outline'
+                                        }
+                                      >
+                                        {employeeProgress.status.replace('_', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())}
+                                      </Badge>
+                                    </TableCell>
+                                    <TableCell data-testid={`employee-actions-${employeeProgress.employee.id}`}>
+                                      {employeeProgress.status !== 'completed' && (
+                                        <Button
+                                          variant="outline"
+                                          size="sm"
+                                          onClick={() => sendReminder(employeeProgress.employee.id)}
+                                          data-testid={`button-send-reminder-${employeeProgress.employee.id}`}
+                                        >
+                                          <Mail className="h-4 w-4 mr-1" />
+                                          Send Reminder
+                                        </Button>
+                                      )}
+                                    </TableCell>
+                                  </TableRow>
+                                ))
+                              ) : (
+                                <TableRow data-testid={`employee-row-placeholder-${appraisal.id}`}>
+                                  <TableCell colSpan={5} className="text-center text-muted-foreground">
+                                    No employee progress data available
+                                  </TableCell>
+                                </TableRow>
+                              )}
                             </TableBody>
                           </Table>
                         </div>
