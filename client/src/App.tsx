@@ -39,6 +39,7 @@ function Router() {
         <>
           <Route path="/" component={Landing} />
           <Route path="/dev" component={DevLogin} />
+          <Route path="/login" component={Landing} />
           <Route path="/company/:companyUrl" component={Landing} />
         </>
       ) : (
