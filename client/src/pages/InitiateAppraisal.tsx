@@ -3,7 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Play, Users, FileText, Calendar, Settings2, Upload, X, Plus } from "lucide-react";
+import { Play, Users, FileText, Calendar, Settings2, Upload, X, Plus, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -52,6 +52,80 @@ interface AppraisalGroupWithMembers extends AppraisalGroup {
   members: SafeUser[];
 }
 
+// Multi-select component for questionnaire templates
+const MultiSelect = ({ 
+  options, 
+  value, 
+  onChange, 
+  placeholder,
+  testId 
+}: { 
+  options: { value: string; label: string }[], 
+  value: string[], 
+  onChange: (value: string[]) => void,
+  placeholder: string,
+  testId: string
+}) => {
+  const [open, setOpen] = useState(false);
+  
+  const handleToggle = (optionValue: string) => {
+    const newValue = value.includes(optionValue)
+      ? value.filter(v => v !== optionValue)
+      : [...value, optionValue];
+    onChange(newValue);
+  };
+  
+  const displayValue = value.length > 0 
+    ? value.length === 1 
+      ? options.find(o => o.value === value[0])?.label || value[0]
+      : `${value.length} templates selected`
+    : placeholder;
+  
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className="w-full justify-between text-left font-normal"
+          data-testid={testId}
+        >
+          {displayValue}
+          <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-full p-0" align="start">
+        <div className="max-h-60 overflow-auto p-1">
+          {options.map((option) => (
+            <div
+              key={option.value}
+              className="flex items-center space-x-2 rounded-md px-2 py-1 hover:bg-accent"
+            >
+              <Checkbox
+                id={option.value}
+                checked={value.includes(option.value)}
+                onCheckedChange={() => handleToggle(option.value)}
+              />
+              <label
+                htmlFor={option.value}
+                className="flex-1 cursor-pointer text-sm"
+              >
+                {option.label}
+              </label>
+            </div>
+          ))}
+          {options.length === 0 && (
+            <div className="px-2 py-3 text-center text-sm text-muted-foreground">
+              No questionnaire templates available
+            </div>
+          )}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+};
+
 // Calendar detail timing configuration
 const calendarDetailTimingSchema = z.object({
   detailId: z.string(),
@@ -63,7 +137,7 @@ const calendarDetailTimingSchema = z.object({
 // Form validation schema
 const initiateAppraisalSchema = z.object({
   appraisalType: z.enum(['questionnaire_based', 'kpi_based', 'mbo_based', 'okr_based']),
-  questionnaireTemplateId: z.string().optional(),
+  questionnaireTemplateIds: z.array(z.string()).default([]),
   documentFile: z.any().optional(), // File upload
   frequencyCalendarId: z.string().optional(),
   calendarDetailTimings: z.array(calendarDetailTimingSchema).default([]), // Per-detail timing config
@@ -77,7 +151,7 @@ const initiateAppraisalSchema = z.object({
   publishType: z.enum(['now', 'as_per_calendar']).default('now'),
 }).refine((data) => {
   if (data.appraisalType === 'questionnaire_based') {
-    return !!data.questionnaireTemplateId;
+    return data.questionnaireTemplateIds && data.questionnaireTemplateIds.length > 0;
   }
   if (data.appraisalType === 'kpi_based' || data.appraisalType === 'mbo_based') {
     return !!data.documentFile;
@@ -104,6 +178,7 @@ export default function InitiateAppraisal() {
     resolver: zodResolver(initiateAppraisalSchema),
     defaultValues: {
       appraisalType: 'questionnaire_based',
+      questionnaireTemplateIds: [],
       calendarDetailTimings: [],
       daysToInitiate: 0,
       daysToClose: 30,
@@ -436,26 +511,24 @@ export default function InitiateAppraisal() {
                     {appraisalType === 'questionnaire_based' && (
                       <FormField
                         control={form.control}
-                        name="questionnaireTemplateId"
+                        name="questionnaireTemplateIds"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Questionnaire Template*</FormLabel>
-                            <Select onValueChange={field.onChange} value={field.value}>
-                              <FormControl>
-                                <SelectTrigger data-testid="select-questionnaire-template">
-                                  <SelectValue placeholder="Select questionnaire template" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                {questionnaireTemplates.map((template) => (
-                                  <SelectItem key={template.id} value={template.id}>
-                                    {template.name}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
+                            <FormLabel>Questionnaire Templates*</FormLabel>
+                            <FormControl>
+                              <MultiSelect
+                                options={questionnaireTemplates.map(template => ({
+                                  value: template.id,
+                                  label: template.name
+                                }))}
+                                value={field.value || []}
+                                onChange={field.onChange}
+                                placeholder="Select questionnaire templates..."
+                                testId="select-questionnaire-templates"
+                              />
+                            </FormControl>
                             <FormDescription>
-                              Choose the questionnaire template for this appraisal
+                              Choose one or more questionnaire templates for this appraisal
                             </FormDescription>
                             <FormMessage />
                           </FormItem>
