@@ -23,7 +23,8 @@ import {
   CheckCircle, 
   Clock,
   Star,
-  FileText
+  FileText,
+  Play
 } from "lucide-react";
 import type { Evaluation, User as UserType, ReviewCycle } from "@shared/schema";
 
@@ -198,6 +199,9 @@ export default function Evaluations() {
     if (evaluation.selfEvaluationSubmittedAt) {
       return <CheckCircle className="h-4 w-4 text-accent" />;
     }
+    if (evaluation.status === 'not_started') {
+      return <Play className="h-4 w-4 text-blue-500" />;
+    }
     return <Clock className="h-4 w-4 text-yellow-500" />;
   };
 
@@ -205,6 +209,7 @@ export default function Evaluations() {
     if (evaluation.finalizedAt) return "Completed";
     if (evaluation.managerEvaluationSubmittedAt) return "Manager Review Complete";
     if (evaluation.selfEvaluationSubmittedAt) return "Self Evaluation Complete";
+    if (evaluation.status === 'not_started') return "Initiated";
     return "Pending";
   };
 
@@ -212,6 +217,7 @@ export default function Evaluations() {
     if (evaluation.finalizedAt) return "default";
     if (evaluation.managerEvaluationSubmittedAt) return "secondary";
     if (evaluation.selfEvaluationSubmittedAt) return "outline";
+    if (evaluation.status === 'not_started') return "secondary";
     return "destructive";
   };
 
