@@ -57,10 +57,12 @@ export function Sidebar() {
   const [location] = useLocation();
   const { user } = useAuth();
 
+  // Use active role from session for role switching support
+  const activeRole = (user as any)?.activeRole || (user as any)?.role || "employee";
 
   const filteredNavItems = navItems.filter((item) => {
     if (!item.roles) return true;
-    return item.roles.includes((user as any)?.role || "employee");
+    return item.roles.includes(activeRole);
   });
 
   return (
