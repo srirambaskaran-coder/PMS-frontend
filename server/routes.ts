@@ -1720,8 +1720,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // HR managers can see all calendars, admins see only theirs
+      // Use active role from session if available, otherwise fall back to database role
+      const activeRole = req.user.activeRole || user.role;
       let calendars;
-      if (user.role === 'hr_manager') {
+      if (activeRole === 'hr_manager') {
         calendars = await storage.getAllFrequencyCalendars();
       } else {
         calendars = await storage.getFrequencyCalendars(userId);
