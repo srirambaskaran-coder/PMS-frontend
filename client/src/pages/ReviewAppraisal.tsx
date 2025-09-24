@@ -26,13 +26,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 export default function ReviewAppraisal() {
   const [filters, setFilters] = useState({
-    appraisalGroup: "",
+    appraisalGroup: "all",
     employee: "",
-    location: "",
-    department: "",
-    level: "",
-    grade: "",
-    manager: "",
+    location: "all",
+    department: "all",
+    level: "all",
+    grade: "all",
+    manager: "all",
   });
 
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
@@ -64,7 +64,7 @@ export default function ReviewAppraisal() {
   });
 
   const { data: managers } = useQuery({
-    queryKey: ["/api/users", { role: "manager" }],
+    queryKey: ["/api/users?role=manager"],
   });
 
   const toggleGroupExpansion = (groupId: string) => {
@@ -126,7 +126,7 @@ export default function ReviewAppraisal() {
                   <SelectValue placeholder="Select group" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Groups</SelectItem>
+                  <SelectItem value="all">All Groups</SelectItem>
                   {(appraisalGroups || [])?.map((group: any) => (
                     <SelectItem key={group.id} value={group.id} data-testid={`group-option-${group.id}`}>
                       {group.name}
@@ -157,7 +157,7 @@ export default function ReviewAppraisal() {
                   <SelectValue placeholder="Select location" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Locations</SelectItem>
+                  <SelectItem value="all">All Locations</SelectItem>
                   {(locations || [])?.map((location: any) => (
                     <SelectItem key={location.id} value={location.id} data-testid={`location-option-${location.id}`}>
                       {location.name}
@@ -177,7 +177,7 @@ export default function ReviewAppraisal() {
                   <SelectValue placeholder="Select department" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Departments</SelectItem>
+                  <SelectItem value="all">All Departments</SelectItem>
                   {(departments || [])?.map((dept: any) => (
                     <SelectItem key={dept.id} value={dept.id} data-testid={`department-option-${dept.id}`}>
                       {dept.name}
@@ -197,7 +197,7 @@ export default function ReviewAppraisal() {
                   <SelectValue placeholder="Select level" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Levels</SelectItem>
+                  <SelectItem value="all">All Levels</SelectItem>
                   {(levels || [])?.map((level: any) => (
                     <SelectItem key={level.id} value={level.id} data-testid={`level-option-${level.id}`}>
                       {level.name}
@@ -217,7 +217,7 @@ export default function ReviewAppraisal() {
                   <SelectValue placeholder="Select grade" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Grades</SelectItem>
+                  <SelectItem value="all">All Grades</SelectItem>
                   {(grades || [])?.map((grade: any) => (
                     <SelectItem key={grade.id} value={grade.id} data-testid={`grade-option-${grade.id}`}>
                       {grade.name}
@@ -237,7 +237,7 @@ export default function ReviewAppraisal() {
                   <SelectValue placeholder="Select manager" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Managers</SelectItem>
+                  <SelectItem value="all">All Managers</SelectItem>
                   {(managers || [])?.map((manager: any) => (
                     <SelectItem key={manager.id} value={manager.id} data-testid={`manager-option-${manager.id}`}>
                       {manager.firstName} {manager.lastName}
@@ -251,13 +251,13 @@ export default function ReviewAppraisal() {
               <Button 
                 variant="outline" 
                 onClick={() => setFilters({
-                  appraisalGroup: "",
+                  appraisalGroup: "all",
                   employee: "",
-                  location: "",
-                  department: "",
-                  level: "",
-                  grade: "",
-                  manager: "",
+                  location: "all",
+                  department: "all",
+                  level: "all",
+                  grade: "all",
+                  manager: "all",
                 })}
                 data-testid="button-clear-filters"
               >

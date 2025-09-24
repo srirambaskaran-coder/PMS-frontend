@@ -1094,8 +1094,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Department management routes - Administrator isolated
-  app.get('/api/departments', isAuthenticated, requireRoles(['admin']), async (req: any, res) => {
+  // Department management routes - Administrator and HR Manager access for filtering
+  app.get('/api/departments', isAuthenticated, requireRoles(['admin', 'hr_manager']), async (req: any, res) => {
     try {
       const createdById = req.user.claims.sub;
       const departments = await storage.getDepartments(createdById);
