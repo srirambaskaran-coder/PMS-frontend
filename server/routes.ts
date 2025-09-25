@@ -924,11 +924,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Get all evaluations where:
       // 1. Manager is the current user
-      // 2. Employee has submitted their evaluation
-      // 3. Manager hasn't submitted their review yet
+      // 2. Employee has submitted their evaluation (regardless of manager review status)
       const evaluations = await storage.getEvaluations({ managerId });
       const submissionsForReview = evaluations.filter(evaluation => 
-        evaluation.selfEvaluationSubmittedAt && !evaluation.managerEvaluationSubmittedAt
+        evaluation.selfEvaluationSubmittedAt
       );
 
       // Get questionnaire data for each evaluation
