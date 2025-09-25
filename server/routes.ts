@@ -2759,6 +2759,81 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Employee-initiated meeting scheduling
+  app.post('/api/evaluations/:id/schedule-meeting-employee', isAuthenticated, requireRoles(['employee']), async (req: any, res) => {
+    try {
+      const evaluationId = req.params.id;
+      const employeeId = req.user.claims.sub;
+      
+      const { meetingDate, duration, location, notes } = req.body;
+      
+      if (!meetingDate) {
+        return res.status(400).json({ message: "Meeting date is required" });
+      }
+      
+      // Validate the evaluation belongs to this employee
+      const evaluation = await storage.getEvaluation(evaluationId);
+      if (!evaluation) {
+        return res.status(404).json({ message: "Evaluation not found" });
+      }
+      if (evaluation.employeeId !== employeeId) {
+        return res.status(403).json({ message: "Access denied: You can only schedule meetings for your own evaluations" });
+      }
+      if (!evaluation.managerEvaluationSubmittedAt) {
+        return res.status(400).json({ message: "Cannot schedule meeting: Manager review must be completed first" });
+      }
+
+      // Get employee and manager details
+      const employee = await storage.getUser(evaluation.employeeId);
+      const manager = await storage.getUser(evaluation.managerId);
+      
+      if (!employee || !manager) {
+        return res.status(404).json({ message: "Employee or manager not found" });
+      }
+
+      // Update evaluation with meeting schedule and details
+      const meetingDetails = {
+        scheduledDate: new Date(meetingDate),
+        duration: duration || 60,
+        location: location || 'office',
+        notes: notes || ''
+      };
+      
+      const updatedEvaluation = await storage.updateEvaluation(evaluationId, {
+        meetingScheduledAt: new Date(meetingDate),
+        meetingDetails: meetingDetails
+      });
+
+      // Send calendar invite to both employee and manager using the email service function
+      const { sendCalendarInvite } = await import('./emailService');
+      await sendCalendarInvite(
+        employee.email,
+        manager.email,
+        `${employee.firstName} ${employee.lastName}`,
+        `${manager.firstName} ${manager.lastName}`,
+        new Date(meetingDate),
+        duration || 60,
+        location || 'office',
+        notes || ''
+      );
+
+      res.json({
+        message: "Meeting request sent successfully and calendar invites have been sent",
+        evaluation: updatedEvaluation,
+        meetingDetails: {
+          date: meetingDate,
+          duration: duration || 60,
+          location: location || 'office',
+          notes: notes || '',
+          attendees: [employee.email, manager.email]
+        }
+      });
+    } catch (error) {
+      console.error('Error scheduling employee meeting:', error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   // Add or update meeting notes
   app.put('/api/evaluations/:id/meeting-notes', isAuthenticated, requireRoles(['manager']), async (req: any, res) => {
     try {

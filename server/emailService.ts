@@ -158,9 +158,17 @@ class EmailService {
     return { subject, html };
   }
 
-  generateCalendarInvite(employeeName: string, managerName: string, meetingDate: Date): string {
+  generateCalendarInvite(employeeName: string, managerName: string, meetingDate: Date, duration?: number, location?: string, notes?: string): string {
+    const durationMinutes = duration || 60;
     const startDate = meetingDate.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
-    const endDate = new Date(meetingDate.getTime() + 60 * 60 * 1000).toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+    const endDate = new Date(meetingDate.getTime() + durationMinutes * 60 * 1000).toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+    
+    let description = `One-on-one performance review meeting between ${employeeName} and ${managerName}`;
+    if (notes) {
+      description += `\\n\\nNotes: ${notes}`;
+    }
+    
+    const locationLine = location ? `\nLOCATION:${location.charAt(0).toUpperCase() + location.slice(1)}` : '';
     
     return `BEGIN:VCALENDAR
 VERSION:2.0
@@ -170,8 +178,8 @@ UID:${Date.now()}@performance-review.com
 DTSTAMP:${new Date().toISOString().replace(/[-:]/g, '').split('.')[0]}Z
 DTSTART:${startDate}
 DTEND:${endDate}
-SUMMARY:Performance Review Meeting - ${employeeName}
-DESCRIPTION:One-on-one performance review meeting between ${employeeName} and ${managerName}
+SUMMARY:Performance Review Meeting - ${employeeName} (${durationMinutes}min)
+DESCRIPTION:${description}${locationLine}
 ATTENDEE;CN=${employeeName}:mailto:employee@company.com
 ATTENDEE;CN=${managerName}:mailto:manager@company.com
 END:VEVENT
@@ -212,17 +220,33 @@ export async function sendReviewCompletion(employeeEmail: string, employeeName: 
   });
 }
 
-export async function sendCalendarInvite(employeeEmail: string, managerEmail: string, employeeName: string, managerName: string, meetingDate: Date): Promise<void> {
-  const icsContent = emailService.generateCalendarInvite(employeeName, managerName, meetingDate);
+export async function sendCalendarInvite(employeeEmail: string, managerEmail: string, employeeName: string, managerName: string, meetingDate: Date, duration?: number, location?: string, notes?: string): Promise<void> {
+  const icsContent = emailService.generateCalendarInvite(employeeName, managerName, meetingDate, duration, location, notes);
   
   const subject = `Meeting Invitation: Performance Review - ${employeeName}`;
+  const locationText = location ? location.charAt(0).toUpperCase() + location.slice(1) : 'Office';
+  const durationText = duration ? `${duration} minutes` : '60 minutes';
+  
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-      <h2>Meeting Invitation</h2>
-      <p>You have been invited to a performance review meeting.</p>
-      <p><strong>Date:</strong> ${meetingDate.toLocaleDateString()}</p>
-      <p><strong>Time:</strong> ${meetingDate.toLocaleTimeString()}</p>
-      <p><strong>Participants:</strong> ${employeeName}, ${managerName}</p>
+      <h2 style="color: #2563eb;">Performance Review Meeting Invitation</h2>
+      <p>Dear Team,</p>
+      <p>A one-on-one performance review meeting has been scheduled.</p>
+      
+      <div style="background-color: #f8fafc; padding: 20px; border-radius: 8px; margin: 20px 0;">
+        <h3 style="color: #1e40af; margin-top: 0;">Meeting Details</h3>
+        <p><strong>Date:</strong> ${meetingDate.toLocaleDateString()}</p>
+        <p><strong>Time:</strong> ${meetingDate.toLocaleTimeString()}</p>
+        <p><strong>Duration:</strong> ${durationText}</p>
+        <p><strong>Location:</strong> ${locationText}</p>
+        <p><strong>Participants:</strong> ${employeeName}, ${managerName}</p>
+        ${notes ? `<p><strong>Notes:</strong> ${notes}</p>` : ''}
+      </div>
+      
+      <p>Please add this meeting to your calendar using the attached invitation.</p>
+      <p>If you have any scheduling conflicts, please reach out as soon as possible.</p>
+      
+      <p>Best regards,<br>Performance Management System</p>
     </div>
   `;
 

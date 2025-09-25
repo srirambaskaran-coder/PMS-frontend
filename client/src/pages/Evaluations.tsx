@@ -70,6 +70,13 @@ export default function Evaluations() {
   const [averageRating, setAverageRating] = useState<number>(0);
   const [showMeetingScheduler, setShowMeetingScheduler] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [meetingData, setMeetingData] = useState({
+    date: '',
+    time: '',
+    duration: '60',
+    location: 'office',
+    notes: ''
+  });
 
   const { user } = useAuth();
   const { toast } = useToast();
@@ -135,6 +142,36 @@ export default function Evaluations() {
         description: "Failed to save draft",
         variant: "destructive",
       });
+    },
+  });
+
+  // Schedule meeting mutation
+  const scheduleMeetingMutation = useMutation({
+    mutationFn: async ({ evaluationId, meetingDetails }: { evaluationId: string; meetingDetails: any }) => {
+      const response = await apiRequest('POST', `/api/evaluations/${evaluationId}/schedule-meeting-employee`, meetingDetails);
+      return response;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/evaluations"] });
+      toast({
+        title: "Meeting Request Sent",
+        description: "Calendar invite has been sent to your manager.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to schedule meeting",
+        variant: "destructive",
+      });
+    },
+    onSettled: (data, error) => {
+      // Only reset form and close modal on success
+      if (!error) {
+        setShowMeetingScheduler(false);
+        setMeetingData({ date: '', time: '', duration: '60', location: 'office', notes: '' });
+      }
+      // On error, keep modal open so user can correct input
     },
   });
 
@@ -582,6 +619,20 @@ export default function Evaluations() {
                           <Download className="h-4 w-4" />
                         </Button>
                       )}
+                      {evaluation.managerEvaluationSubmittedAt && !evaluation.meetingCompletedAt && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedEvaluation(evaluation);
+                            setShowMeetingScheduler(true);
+                          }}
+                          data-testid={`schedule-meeting-${evaluation.id}`}
+                        >
+                          <Calendar className="h-4 w-4 mr-2" />
+                          Schedule 1 on 1
+                        </Button>
+                      )}
                     </div>
                   </div>
                 </CardContent>
@@ -755,10 +806,14 @@ export default function Evaluations() {
                           <Input
                             type="date"
                             min={new Date().toISOString().split('T')[0]}
+                            value={meetingData.date}
+                            onChange={(e) => setMeetingData(prev => ({ ...prev, date: e.target.value }))}
                             data-testid="meeting-date-1"
                           />
                           <Input
                             type="time"
+                            value={meetingData.time}
+                            onChange={(e) => setMeetingData(prev => ({ ...prev, time: e.target.value }))}
                             data-testid="meeting-time-1"
                           />
                         </div>
@@ -793,7 +848,7 @@ export default function Evaluations() {
                       </div>
                       <div>
                         <label className="text-sm font-medium mb-2 block">Meeting Duration</label>
-                        <Select defaultValue="60">
+                        <Select value={meetingData.duration} onValueChange={(value) => setMeetingData(prev => ({ ...prev, duration: value }))}>
                           <SelectTrigger data-testid="meeting-duration">
                             <SelectValue placeholder="Select duration" />
                           </SelectTrigger>
@@ -809,7 +864,7 @@ export default function Evaluations() {
 
                     <div>
                       <label className="text-sm font-medium mb-2 block">Meeting Location</label>
-                      <Select defaultValue="office">
+                      <Select value={meetingData.location} onValueChange={(value) => setMeetingData(prev => ({ ...prev, location: value }))}>
                         <SelectTrigger data-testid="meeting-location">
                           <SelectValue placeholder="Select location" />
                         </SelectTrigger>
@@ -824,6 +879,8 @@ export default function Evaluations() {
                     <div>
                       <label className="text-sm font-medium mb-2 block">Additional Notes (Optional)</label>
                       <Textarea
+                        value={meetingData.notes}
+                        onChange={(e) => setMeetingData(prev => ({ ...prev, notes: e.target.value }))}
                         placeholder="Any specific topics you'd like to discuss or special requirements..."
                         className="min-h-[80px]"
                         data-testid="meeting-notes"
@@ -843,17 +900,45 @@ export default function Evaluations() {
                   </Button>
                   <Button
                     onClick={() => {
-                      toast({
-                        title: "Meeting Request Sent",
-                        description: "Your manager will receive a calendar invite with your preferred times"
-                      });
-                      setShowMeetingScheduler(false);
+                      if (!meetingData.date || !meetingData.time) {
+                        toast({
+                          title: "Error",
+                          description: "Please select a date and time for the meeting",
+                          variant: "destructive",
+                        });
+                        return;
+                      }
+                      
+                      // Validate that the selected date is not in the past
+                      const meetingDateTime = new Date(`${meetingData.date}T${meetingData.time}`);
+                      const now = new Date();
+                      if (meetingDateTime <= now) {
+                        toast({
+                          title: "Error", 
+                          description: "Please select a future date and time",
+                          variant: "destructive",
+                        });
+                        return;
+                      }
+                      
+                      if (selectedEvaluation) {
+                        scheduleMeetingMutation.mutate({
+                          evaluationId: selectedEvaluation.id,
+                          meetingDetails: {
+                            meetingDate: meetingDateTime.toISOString(),
+                            duration: parseInt(meetingData.duration),
+                            location: meetingData.location,
+                            notes: meetingData.notes,
+                          }
+                        });
+                      }
                     }}
                     className="flex-1"
+                    disabled={scheduleMeetingMutation.isPending}
                     data-testid="send-meeting-request"
                   >
                     <Send className="h-4 w-4 mr-2" />
-                    Send Request
+                    {scheduleMeetingMutation.isPending ? 'Sending...' : 'Send Request'}
                   </Button>
                 </div>
               </div>
