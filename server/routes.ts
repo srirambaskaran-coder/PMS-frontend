@@ -163,6 +163,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!user) {
         return res.status(404).json({ message: "User not found" });
       }
+      
+      console.log('🔍 CURRENT USER DATABASE RECORD:', {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        roles: user.roles,
+        firstName: user.firstName,
+        lastName: user.lastName
+      });
+      
+      console.log('🔍 SESSION DATA:', {
+        activeRole: req.user.activeRole,
+        userClaims: req.user.claims
+      });
+      
       // Sanitize user object to exclude passwordHash
       const { passwordHash, ...safeUser } = user;
       
