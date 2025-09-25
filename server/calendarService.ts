@@ -23,23 +23,33 @@ class CalendarService {
    * Detect which calendar service is configured and available for a specific company
    */
   async detectCalendarProvider(companyId: string): Promise<CalendarProvider> {
+    console.log('🔍 Detecting calendar provider for company:', companyId);
     try {
       // Check for Google Calendar credentials and verify token validity
+      console.log('🔍 Checking Google Calendar credentials...');
       const googleConfig = await this.getGoogleCalendarConfig(companyId);
+      console.log('🔍 Google config result:', googleConfig ? 'Found credentials' : 'No credentials found');
+      
       if (googleConfig && await this.verifyGoogleToken(googleConfig)) {
+        console.log('✅ Google Calendar provider selected - real calendar events will be created');
         return { type: 'google', credentials: googleConfig };
       }
       
       // Check for Outlook credentials and verify token validity
+      console.log('🔍 Checking Outlook Calendar credentials...');
       const outlookConfig = await this.getOutlookCalendarConfig(companyId);
+      console.log('🔍 Outlook config result:', outlookConfig ? 'Found credentials' : 'No credentials found');
+      
       if (outlookConfig && await this.verifyOutlookToken(outlookConfig)) {
+        console.log('✅ Outlook Calendar provider selected - real calendar events will be created');
         return { type: 'outlook', credentials: outlookConfig };
       }
       
       // Fallback to ICS attachments
+      console.log('⚠️ No calendar API configured - falling back to ICS attachments');
       return { type: 'ics' };
     } catch (error) {
-      console.log('Calendar provider detection failed, falling back to ICS:', error);
+      console.log('❌ Calendar provider detection failed, falling back to ICS:', error);
       return { type: 'ics' };
     }
   }
@@ -48,23 +58,32 @@ class CalendarService {
    * Create a calendar event using the appropriate service for a specific company
    */
   async createCalendarEvent(event: CalendarEvent, companyId: string): Promise<{ success: boolean; eventId?: string; error?: string; provider: string }> {
+    console.log('📅 Creating calendar event for company:', companyId);
+    console.log('📅 Event details:', { subject: event.subject, attendees: event.attendees.map(a => a.email) });
+    
     const provider = await this.detectCalendarProvider(companyId);
+    console.log('📅 Using provider:', provider.type);
     
     try {
       switch (provider.type) {
         case 'google':
+          console.log('📅 Creating Google Calendar event with sendUpdates: all');
           const googleResult = await this.createGoogleCalendarEvent(event, provider.credentials);
+          console.log('📅 Google Calendar result:', googleResult);
           return { ...googleResult, provider: 'google' };
         case 'outlook':
+          console.log('📅 Creating Outlook Calendar event');
           const outlookResult = await this.createOutlookCalendarEvent(event, provider.credentials);
+          console.log('📅 Outlook Calendar result:', outlookResult);
           return { ...outlookResult, provider: 'outlook' };
         case 'ics':
         default:
+          console.log('📅 Using ICS fallback - no real calendar event created');
           // Return success for ICS fallback (will be handled by email service)
           return { success: true, eventId: 'ics-fallback', provider: 'ics' };
       }
     } catch (error) {
-      console.error('Calendar event creation failed:', error);
+      console.error('❌ Calendar event creation failed:', error);
       return { 
         success: false, 
         error: error instanceof Error ? error.message : 'Unknown error',
