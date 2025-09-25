@@ -102,6 +102,7 @@ export default function CompanyManagement() {
       gstNumber: "",
       logoUrl: "",
       url: "",
+      companyUrl: "",
       status: "active",
     },
   });
@@ -125,6 +126,7 @@ export default function CompanyManagement() {
       gstNumber: company.gstNumber || "",
       logoUrl: company.logoUrl || "",
       url: company.url || "",
+      companyUrl: company.companyUrl || "",
       status: company.status || "active",
     });
   };
@@ -146,6 +148,7 @@ export default function CompanyManagement() {
       gstNumber: "",
       logoUrl: "",
       url: "",
+      companyUrl: "",
       status: "active",
     });
   };
@@ -243,11 +246,28 @@ export default function CompanyManagement() {
                     name="url"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Company URL</FormLabel>
+                        <FormLabel>Website URL</FormLabel>
                         <FormControl>
-                          <Input type="url" {...field} value={field.value ?? ""} placeholder="https://company.example.com" data-testid="input-company-url" />
+                          <Input type="url" {...field} value={field.value ?? ""} placeholder="https://company.example.com" data-testid="input-website-url" />
                         </FormControl>
                         <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="companyUrl"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Company Login Slug</FormLabel>
+                        <FormControl>
+                          <Input {...field} value={field.value ?? ""} placeholder="hfactor" data-testid="input-company-url-slug" />
+                        </FormControl>
+                        <FormMessage />
+                        <p className="text-xs text-muted-foreground">
+                          Unique identifier for company login (e.g., 'hfactor' for hfactor.com login)
+                        </p>
                       </FormItem>
                     )}
                   />
