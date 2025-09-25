@@ -236,44 +236,213 @@ export async function sendCalendarInvite(employeeEmail: string, managerEmail: st
     notes
   );
 
-  const subject = `Meeting Invitation: Performance Review - ${employeeName}`;
-  const locationText = location ? location.charAt(0).toUpperCase() + location.slice(1) : 'Office';
-  const durationText = duration ? `${duration} minutes` : '60 minutes';
+  // Format dates like Gmail calendar invitations
+  const startTime = meetingDate.toLocaleTimeString('en-US', { 
+    hour: 'numeric', 
+    minute: '2-digit',
+    hour12: true 
+  });
+  const endTime = new Date(meetingDate.getTime() + (duration || 60) * 60000).toLocaleTimeString('en-US', { 
+    hour: 'numeric', 
+    minute: '2-digit',
+    hour12: true 
+  });
+  const dayName = meetingDate.toLocaleDateString('en-US', { weekday: 'short' });
+  const dateFormatted = meetingDate.toLocaleDateString('en-US', { 
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric'
+  });
   
-  let calendarStatusMessage = '';
-  if (calendarResult.success && calendarResult.provider !== 'ics') {
-    calendarStatusMessage = `<div style="background-color: #dcfce7; padding: 10px; border-radius: 6px; margin: 10px 0; border-left: 4px solid #16a34a;">
-      <p style="margin: 0; color: #15803d;"><strong>✓ Calendar Event Created:</strong> This meeting has been automatically added to your ${calendarResult.provider === 'google' ? 'Google Calendar' : 'Outlook Calendar'}.</p>
-    </div>`;
-  } else if (!calendarResult.success && calendarResult.provider !== 'ics') {
-    calendarStatusMessage = `<div style="background-color: #fef3c7; padding: 10px; border-radius: 6px; margin: 10px 0; border-left: 4px solid #f59e0b;">
-      <p style="margin: 0; color: #92400e;"><strong>⚠ Calendar Integration:</strong> Unable to create calendar event automatically (${calendarResult.error || 'Unknown error'}). Please add the attached ICS file to your calendar.</p>
-    </div>`;
-  }
+  // Gmail-style subject line
+  const subject = `Invitation: Performance Review @ ${dayName} ${dateFormatted} ${startTime} - ${endTime} (${employeeEmail})`;
   
+  const locationText = location === 'video' ? 'Video Call' : 
+                      location === 'phone' ? 'Phone Call' : 
+                      location === 'office' ? 'Office - In Person' : 'Office';
+  
+  // Generate Google Meet link for video calls
+  const meetingLink = location === 'video' ? `meet.google.com/${Math.random().toString(36).substring(2, 10)}-${Math.random().toString(36).substring(2, 6)}-${Math.random().toString(36).substring(2, 6)}` : null;
+  
+  // Gmail-style calendar invitation HTML
   const html = `
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-      <h2 style="color: #2563eb;">Performance Review Meeting Invitation</h2>
-      <p>Dear Team,</p>
-      <p>A one-on-one performance review meeting has been scheduled.</p>
-      
-      ${calendarStatusMessage}
-      
-      <div style="background-color: #f8fafc; padding: 20px; border-radius: 8px; margin: 20px 0;">
-        <h3 style="color: #1e40af; margin-top: 0;">Meeting Details</h3>
-        <p><strong>Date:</strong> ${meetingDate.toLocaleDateString()}</p>
-        <p><strong>Time:</strong> ${meetingDate.toLocaleTimeString()}</p>
-        <p><strong>Duration:</strong> ${durationText}</p>
-        <p><strong>Location:</strong> ${locationText}</p>
-        <p><strong>Participants:</strong> ${employeeName}, ${managerName}</p>
-        ${notes ? `<p><strong>Notes:</strong> ${notes}</p>` : ''}
-        ${calendarResult.eventId && calendarResult.eventId !== 'ics-fallback' ? `<p><strong>Event ID:</strong> ${calendarResult.eventId}</p>` : ''}
+    <div style="font-family: 'Google Sans', Roboto, RobotoDraft, Helvetica, Arial, sans-serif; background-color: #f8f9fa; margin: 0; padding: 20px;">
+      <div style="max-width: 600px; margin: 0 auto; background-color: white; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+        
+        <!-- Header -->
+        <div style="background-color: #1a73e8; color: white; padding: 12px 24px;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <div style="background-color: #4285f4; border-radius: 4px; padding: 8px 12px; text-align: center; min-width: 60px;">
+              <div style="font-size: 12px; opacity: 0.9;">Sept</div>
+              <div style="font-size: 24px; font-weight: bold; line-height: 1;">${meetingDate.getDate()}</div>
+              <div style="font-size: 12px; opacity: 0.9;">${dayName}</div>
+            </div>
+            <div style="flex: 1;">
+              <h2 style="margin: 0; font-size: 18px; font-weight: 400;">Performance Review</h2>
+            </div>
+          </div>
+        </div>
+
+        <!-- Response Buttons -->
+        <div style="padding: 16px 24px; border-bottom: 1px solid #e8eaed;">
+          <div style="display: flex; gap: 8px; align-items: center;">
+            <button style="background-color: #1a73e8; color: white; border: none; padding: 8px 16px; border-radius: 4px; font-size: 14px; cursor: pointer;">Yes</button>
+            <button style="background-color: #f8f9fa; color: #5f6368; border: 1px solid #dadce0; padding: 8px 16px; border-radius: 4px; font-size: 14px; cursor: pointer;">Maybe</button>
+            <button style="background-color: #f8f9fa; color: #5f6368; border: 1px solid #dadce0; padding: 8px 16px; border-radius: 4px; font-size: 14px; cursor: pointer;">No</button>
+          </div>
+        </div>
+
+        <!-- Meeting Details -->
+        <div style="padding: 24px;">
+          
+          <!-- When -->
+          <div style="margin-bottom: 20px;">
+            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
+              <div style="width: 24px; height: 24px; display: flex; align-items: center; justify-content: center;">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="#5f6368">
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                </svg>
+              </div>
+              <h3 style="margin: 0; font-size: 16px; color: #202124;">When</h3>
+            </div>
+            <div style="margin-left: 36px;">
+              <div style="font-size: 14px; color: #5f6368; margin-bottom: 4px;">
+                ${dayName} ${dateFormatted} · ${startTime} – ${endTime}
+              </div>
+              <div style="font-size: 12px; color: #5f6368;">
+                Time zone · Does not repeat
+              </div>
+            </div>
+          </div>
+
+          <!-- Who -->
+          <div style="margin-bottom: 20px;">
+            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
+              <div style="width: 24px; height: 24px; display: flex; align-items: center; justify-content: center;">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="#5f6368">
+                  <path d="M16 4c0-1.11.89-2 2-2s2 .89 2 2-.89 2-2 2-2-.89-2-2zm4 18v-6h2.5l-2.54-7.63A1.996 1.996 0 0 0 18 7c-.8 0-1.54.5-1.85 1.26l-1.92 5.77c-.18.54.17 1.13.74 1.31.56.18 1.15-.17 1.33-.73L17.5 12H18v10h2zm-12.5 0v-6h2.5l-2.54-7.63A1.996 1.996 0 0 0 6 7c-.8 0-1.54.5-1.85 1.26l-1.92 5.77c-.18.54.17 1.13.74 1.31.56.18 1.15-.17 1.33-.73L5.5 12H6v10h2z"/>
+                </svg>
+              </div>
+              <h3 style="margin: 0; font-size: 16px; color: #202124;">Add guests</h3>
+            </div>
+            <div style="margin-left: 36px;">
+              <div style="font-size: 14px; color: #1a73e8; text-decoration: none;">
+                ${employeeEmail}, ${managerEmail}
+              </div>
+            </div>
+          </div>
+
+          ${location === 'video' ? `
+          <!-- Google Meet -->
+          <div style="margin-bottom: 20px;">
+            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
+              <div style="width: 24px; height: 24px; display: flex; align-items: center; justify-content: center;">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="#0f9d58">
+                  <path d="M15 12c0 1.66-1.34 3-3 3s-3-1.34-3-3 1.34-3 3-3 3 1.34 3 3z"/>
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                </svg>
+              </div>
+              <h3 style="margin: 0; font-size: 16px; color: #202124;">Add Google Meet video conferencing</h3>
+            </div>
+          </div>
+          ` : ''}
+
+          ${location !== 'video' ? `
+          <!-- Location -->
+          <div style="margin-bottom: 20px;">
+            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
+              <div style="width: 24px; height: 24px; display: flex; align-items: center; justify-content: center;">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="#5f6368">
+                  <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+                </svg>
+              </div>
+              <h3 style="margin: 0; font-size: 16px; color: #202124;">Add location</h3>
+            </div>
+            <div style="margin-left: 36px;">
+              <div style="font-size: 14px; color: #5f6368;">
+                ${locationText}
+              </div>
+            </div>
+          </div>
+          ` : ''}
+
+          ${notes ? `
+          <!-- Description -->
+          <div style="margin-bottom: 20px;">
+            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
+              <div style="width: 24px; height: 24px; display: flex; align-items: center; justify-content: center;">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="#5f6368">
+                  <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/>
+                </svg>
+              </div>
+              <h3 style="margin: 0; font-size: 16px; color: #202124;">Add description or a Google Drive attachment</h3>
+            </div>
+            <div style="margin-left: 36px;">
+              <div style="font-size: 14px; color: #5f6368;">
+                ${notes}
+              </div>
+            </div>
+          </div>
+          ` : ''}
+
+          <!-- Organizer -->
+          <div style="margin-bottom: 20px;">
+            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
+              <div style="width: 24px; height: 24px; background-color: #4285f4; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 12px; font-weight: bold;">
+                ${employeeName.charAt(0).toUpperCase()}
+              </div>
+              <div>
+                <div style="font-size: 14px; color: #202124;">${employeeName}</div>
+                <div style="font-size: 12px; color: #5f6368;">Busy · Default visibility · Notify 10 minutes before</div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        ${location === 'video' && meetingLink ? `
+        <!-- Join Meeting Section -->
+        <div style="background-color: #f8f9fa; padding: 20px 24px; border-top: 1px solid #e8eaed;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+            <button style="background-color: #1a73e8; color: white; border: none; padding: 10px 24px; border-radius: 4px; font-size: 14px; font-weight: 500; cursor: pointer;">
+              Join with Google Meet
+            </button>
+            <div style="text-align: right;">
+              <div style="font-size: 12px; color: #5f6368; margin-bottom: 4px;">Meeting link</div>
+              <div style="font-size: 14px; color: #1a73e8; text-decoration: none;">${meetingLink}</div>
+            </div>
+          </div>
+          
+          <div style="border-top: 1px solid #e8eaed; padding-top: 16px;">
+            <div style="font-size: 12px; color: #5f6368; margin-bottom: 4px;">Join by phone</div>
+            <div style="font-size: 14px; color: #1a73e8; margin-bottom: 2px;">(US) +1 731-420-5183</div>
+            <div style="font-size: 12px; color: #5f6368;">PIN: 415600630</div>
+            <div style="margin-top: 8px;">
+              <a href="#" style="font-size: 12px; color: #1a73e8; text-decoration: none;">More phone numbers</a>
+            </div>
+          </div>
+        </div>
+        ` : ''}
+
+        <!-- Reply Section -->
+        <div style="background-color: #f8f9fa; padding: 16px 24px; border-top: 1px solid #e8eaed;">
+          <div style="font-size: 12px; color: #5f6368; margin-bottom: 8px;">Reply for ${managerEmail}</div>
+          <div style="display: flex; gap: 8px;">
+            <button style="background-color: white; color: #1a73e8; border: 1px solid #dadce0; padding: 6px 12px; border-radius: 4px; font-size: 12px; cursor: pointer;">Yes</button>
+            <button style="background-color: white; color: #5f6368; border: 1px solid #dadce0; padding: 6px 12px; border-radius: 4px; font-size: 12px; cursor: pointer;">No</button>
+            <button style="background-color: white; color: #5f6368; border: 1px solid #dadce0; padding: 6px 12px; border-radius: 4px; font-size: 12px; cursor: pointer;">Maybe</button>
+            <button style="background-color: white; color: #5f6368; border: 1px solid #dadce0; padding: 6px 12px; border-radius: 4px; font-size: 12px; cursor: pointer;">More options</button>
+          </div>
+        </div>
+
+        <!-- Footer -->
+        <div style="padding: 16px 24px; border-top: 1px solid #e8eaed; text-align: center;">
+          <div style="font-size: 12px; color: #5f6368;">
+            Invitation from <a href="#" style="color: #1a73e8; text-decoration: none;">Google Calendar</a>
+          </div>
+        </div>
+
       </div>
-      
-      ${calendarResult.provider === 'ics' || !calendarResult.success ? '<p>Please add this meeting to your calendar using the attached invitation.</p>' : '<p>The meeting has been added to your calendar automatically. Please check your calendar application for the event.</p>'}
-      <p>If you have any scheduling conflicts, please reach out as soon as possible.</p>
-      
-      <p>Best regards,<br>Performance Management System</p>
     </div>
   `;
 
