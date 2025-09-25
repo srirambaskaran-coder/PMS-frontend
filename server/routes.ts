@@ -2812,6 +2812,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         `${employee.firstName} ${employee.lastName}`,
         `${manager.firstName} ${manager.lastName}`,
         new Date(meetingDate),
+        employee.companyId!, // Pass company ID for multi-tenant calendar support
         duration || 60,
         location || 'office',
         notes || ''

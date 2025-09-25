@@ -233,6 +233,29 @@ export const accessTokens = pgTable("access_tokens", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Calendar provider enum
+export const calendarProviderEnum = pgEnum('calendar_provider', ['google', 'outlook']);
+
+// Calendar credentials table for storing OAuth tokens
+export const calendarCredentials = pgTable("calendar_credentials", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  companyId: varchar("company_id").notNull(),
+  provider: calendarProviderEnum("provider").notNull(),
+  clientId: varchar("client_id").notNull(),
+  clientSecret: varchar("client_secret").notNull(),
+  accessToken: text("access_token"),
+  refreshToken: text("refresh_token").notNull(),
+  expiresAt: timestamp("expires_at"),
+  scope: text("scope"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  // Only one active credential per provider per company
+  unique("unique_company_provider_active").on(table.companyId, table.provider),
+  index("calendar_credentials_company_provider_idx").on(table.companyId, table.provider),
+]);
+
 // Level table - Administrator managed
 export const levels = pgTable("levels", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -667,6 +690,12 @@ export const insertAccessTokenSchema = createInsertSchema(accessTokens).omit({
   createdAt: true,
 });
 
+export const insertCalendarCredentialSchema = createInsertSchema(calendarCredentials).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 // Insert schemas for new entities
 export const insertLevelSchema = createInsertSchema(levels).omit({
   id: true,
@@ -794,6 +823,8 @@ export type Registration = typeof registrations.$inferSelect;
 export type InsertRegistration = z.infer<typeof insertRegistrationSchema>;
 export type AccessToken = typeof accessTokens.$inferSelect;
 export type InsertAccessToken = z.infer<typeof insertAccessTokenSchema>;
+export type CalendarCredential = typeof calendarCredentials.$inferSelect;
+export type InsertCalendarCredential = z.infer<typeof insertCalendarCredentialSchema>;
 
 // Types for new entities
 export type Level = typeof levels.$inferSelect;

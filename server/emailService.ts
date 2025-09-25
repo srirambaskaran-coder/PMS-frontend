@@ -220,18 +220,44 @@ export async function sendReviewCompletion(employeeEmail: string, employeeName: 
   });
 }
 
-export async function sendCalendarInvite(employeeEmail: string, managerEmail: string, employeeName: string, managerName: string, meetingDate: Date, duration?: number, location?: string, notes?: string): Promise<void> {
-  const icsContent = emailService.generateCalendarInvite(employeeName, managerName, meetingDate, duration, location, notes);
+export async function sendCalendarInvite(employeeEmail: string, managerEmail: string, employeeName: string, managerName: string, meetingDate: Date, companyId: string, duration?: number, location?: string, notes?: string): Promise<void> {
+  // Try to create calendar event using external APIs first
+  const { createPerformanceReviewMeeting } = await import('./calendarService');
   
+  const calendarResult = await createPerformanceReviewMeeting(
+    employeeName,
+    managerName,
+    employeeEmail,
+    managerEmail,
+    meetingDate,
+    companyId,
+    duration,
+    location,
+    notes
+  );
+
   const subject = `Meeting Invitation: Performance Review - ${employeeName}`;
   const locationText = location ? location.charAt(0).toUpperCase() + location.slice(1) : 'Office';
   const durationText = duration ? `${duration} minutes` : '60 minutes';
+  
+  let calendarStatusMessage = '';
+  if (calendarResult.success && calendarResult.provider !== 'ics') {
+    calendarStatusMessage = `<div style="background-color: #dcfce7; padding: 10px; border-radius: 6px; margin: 10px 0; border-left: 4px solid #16a34a;">
+      <p style="margin: 0; color: #15803d;"><strong>✓ Calendar Event Created:</strong> This meeting has been automatically added to your ${calendarResult.provider === 'google' ? 'Google Calendar' : 'Outlook Calendar'}.</p>
+    </div>`;
+  } else if (!calendarResult.success && calendarResult.provider !== 'ics') {
+    calendarStatusMessage = `<div style="background-color: #fef3c7; padding: 10px; border-radius: 6px; margin: 10px 0; border-left: 4px solid #f59e0b;">
+      <p style="margin: 0; color: #92400e;"><strong>⚠ Calendar Integration:</strong> Unable to create calendar event automatically (${calendarResult.error || 'Unknown error'}). Please add the attached ICS file to your calendar.</p>
+    </div>`;
+  }
   
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
       <h2 style="color: #2563eb;">Performance Review Meeting Invitation</h2>
       <p>Dear Team,</p>
       <p>A one-on-one performance review meeting has been scheduled.</p>
+      
+      ${calendarStatusMessage}
       
       <div style="background-color: #f8fafc; padding: 20px; border-radius: 8px; margin: 20px 0;">
         <h3 style="color: #1e40af; margin-top: 0;">Meeting Details</h3>
@@ -241,26 +267,42 @@ export async function sendCalendarInvite(employeeEmail: string, managerEmail: st
         <p><strong>Location:</strong> ${locationText}</p>
         <p><strong>Participants:</strong> ${employeeName}, ${managerName}</p>
         ${notes ? `<p><strong>Notes:</strong> ${notes}</p>` : ''}
+        ${calendarResult.eventId && calendarResult.eventId !== 'ics-fallback' ? `<p><strong>Event ID:</strong> ${calendarResult.eventId}</p>` : ''}
       </div>
       
-      <p>Please add this meeting to your calendar using the attached invitation.</p>
+      ${calendarResult.provider === 'ics' || !calendarResult.success ? '<p>Please add this meeting to your calendar using the attached invitation.</p>' : '<p>The meeting has been added to your calendar automatically. Please check your calendar application for the event.</p>'}
       <p>If you have any scheduling conflicts, please reach out as soon as possible.</p>
       
       <p>Best regards,<br>Performance Management System</p>
     </div>
   `;
 
+  // Generate ICS content as fallback or for email attachment
+  const icsContent = emailService.generateCalendarInvite(employeeName, managerName, meetingDate, duration, location, notes);
+
+  const emailOptions: any = {
+    subject,
+    html,
+  };
+
+  // Add ICS attachment if calendar API failed or is not configured
+  if (calendarResult.provider === 'ics' || !calendarResult.success) {
+    emailOptions.attachments = [{
+      filename: 'meeting-invite.ics',
+      content: icsContent,
+      contentType: 'text/calendar'
+    }];
+  }
+
   // Send to both employee and manager
   await emailService.sendEmail({
     to: employeeEmail,
-    subject,
-    html,
+    ...emailOptions,
   });
 
   await emailService.sendEmail({
     to: managerEmail,
-    subject,
-    html,
+    ...emailOptions,
   });
 }
 

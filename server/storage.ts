@@ -9,6 +9,7 @@ import {
   emailConfig,
   registrations,
   accessTokens,
+  calendarCredentials,
   levels,
   grades,
   departments,
@@ -43,6 +44,8 @@ import {
   type InsertRegistration,
   type AccessToken,
   type InsertAccessToken,
+  type CalendarCredential,
+  type InsertCalendarCredential,
   type Level,
   type InsertLevel,
   type Grade,
@@ -162,6 +165,13 @@ export interface IStorage {
   markTokenAsUsed(token: string): Promise<void>;
   deactivateToken(token: string): Promise<void>;
   getActiveTokensByUser(userId: string): Promise<AccessToken[]>;
+  
+  // Calendar Credential operations
+  getCalendarCredential(companyId: string, provider: 'google' | 'outlook'): Promise<CalendarCredential | undefined>;
+  createCalendarCredential(credential: InsertCalendarCredential): Promise<CalendarCredential>;
+  updateCalendarCredential(id: string, credential: Partial<InsertCalendarCredential>): Promise<CalendarCredential>;
+  updateCalendarCredentialTokens(companyId: string, provider: 'google' | 'outlook', accessToken: string, refreshToken?: string, expiresAt?: Date): Promise<void>;
+  deleteCalendarCredential(id: string): Promise<void>;
   
   // Level operations - Administrator isolated
   getLevels(createdById: string): Promise<Level[]>;
@@ -970,6 +980,67 @@ export class DatabaseStorage implements IStorage {
         eq(accessTokens.isActive, true)
       )
     ).orderBy(desc(accessTokens.createdAt));
+  }
+
+  // Calendar Credential operations implementation
+  async getCalendarCredential(companyId: string, provider: 'google' | 'outlook'): Promise<CalendarCredential | undefined> {
+    const [credential] = await db.select().from(calendarCredentials).where(
+      and(
+        eq(calendarCredentials.companyId, companyId),
+        eq(calendarCredentials.provider, provider),
+        eq(calendarCredentials.isActive, true)
+      )
+    );
+    return credential;
+  }
+
+  async createCalendarCredential(credential: InsertCalendarCredential): Promise<CalendarCredential> {
+    const [newCredential] = await db.insert(calendarCredentials).values(credential).returning();
+    return newCredential;
+  }
+
+  async updateCalendarCredential(id: string, credential: Partial<InsertCalendarCredential>): Promise<CalendarCredential> {
+    const [updatedCredential] = await db
+      .update(calendarCredentials)
+      .set({ ...credential, updatedAt: new Date() })
+      .where(eq(calendarCredentials.id, id))
+      .returning();
+    return updatedCredential;
+  }
+
+  async updateCalendarCredentialTokens(
+    companyId: string, 
+    provider: 'google' | 'outlook', 
+    accessToken: string, 
+    refreshToken?: string, 
+    expiresAt?: Date
+  ): Promise<void> {
+    const updateData: any = {
+      accessToken,
+      updatedAt: new Date(),
+    };
+    
+    if (refreshToken) {
+      updateData.refreshToken = refreshToken;
+    }
+    
+    if (expiresAt) {
+      updateData.expiresAt = expiresAt;
+    }
+
+    await db
+      .update(calendarCredentials)
+      .set(updateData)
+      .where(
+        and(
+          eq(calendarCredentials.companyId, companyId),
+          eq(calendarCredentials.provider, provider)
+        )
+      );
+  }
+
+  async deleteCalendarCredential(id: string): Promise<void> {
+    await db.delete(calendarCredentials).where(eq(calendarCredentials.id, id));
   }
 
   // Settings operations
