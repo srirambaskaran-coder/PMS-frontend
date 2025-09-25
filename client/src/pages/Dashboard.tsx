@@ -18,8 +18,9 @@ export default function Dashboard() {
     );
   }
 
-  // Render role-specific dashboard based on user role
-  switch (user.role) {
+  // Render role-specific dashboard based on active role (or fallback to default role)
+  const currentRole = user.activeRole || user.role;
+  switch (currentRole) {
     case 'super_admin':
       return <SuperAdminDashboard />;
     case 'admin':

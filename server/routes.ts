@@ -223,7 +223,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Dashboard metrics
+  // Dashboard metrics - legacy endpoint
   app.get('/api/dashboard/metrics', isAuthenticated, async (req: any, res) => {
     try {
       const requestingUserId = req.user.claims.sub;
@@ -244,6 +244,609 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching dashboard metrics:", error);
       res.status(500).json({ message: "Failed to fetch metrics" });
+    }
+  });
+
+  // Super Admin Dashboard Endpoints
+  app.get('/api/dashboard/super-admin/metrics', isAuthenticated, requireRoles(['super_admin']), async (req: any, res) => {
+    try {
+      const companies = await storage.getCompanies();
+      const allUsers = await storage.getUsers({}, req.user.claims.sub);
+      const evaluations = await storage.getEvaluations();
+      
+      const metrics = {
+        totalCompanies: companies.length,
+        totalUsers: allUsers.length,
+        activeCompanies: companies.filter(c => c.status === 'active').length,
+        systemHealth: 98, // Placeholder - could be calculated based on system metrics
+        recentSignups: companies.filter(c => {
+          const createdAt = new Date(c.createdAt);
+          const monthAgo = new Date();
+          monthAgo.setMonth(monthAgo.getMonth() - 1);
+          return createdAt > monthAgo;
+        }).length,
+        systemAlerts: 0, // Placeholder
+        storageUsage: 75, // Placeholder
+        activeEvaluations: evaluations.filter(e => e.status === 'in_progress').length,
+      };
+
+      res.json(metrics);
+    } catch (error) {
+      console.error("Error fetching super admin metrics:", error);
+      res.status(500).json({ message: "Failed to fetch metrics" });
+    }
+  });
+
+  app.get('/api/dashboard/super-admin/companies', isAuthenticated, requireRoles(['super_admin']), async (req: any, res) => {
+    try {
+      const companies = await storage.getCompanies();
+      const allUsers = await storage.getUsers({}, req.user.claims.sub);
+      
+      const companiesWithStats = companies.map(company => {
+        const companyUsers = allUsers.filter(u => u.companyId === company.id);
+        return {
+          id: company.id,
+          name: company.name,
+          domain: company.domain || 'Unknown',
+          userCount: companyUsers.length,
+          status: company.status || 'active',
+          planType: 'Enterprise', // Placeholder
+        };
+      });
+
+      res.json(companiesWithStats);
+    } catch (error) {
+      console.error("Error fetching companies overview:", error);
+      res.status(500).json({ message: "Failed to fetch companies" });
+    }
+  });
+
+  app.get('/api/dashboard/super-admin/alerts', isAuthenticated, requireRoles(['super_admin']), async (req: any, res) => {
+    try {
+      // Mock alerts for now
+      const alerts = [
+        {
+          id: '1',
+          type: 'info',
+          message: 'System backup completed successfully',
+          timestamp: '2 hours ago',
+        },
+        {
+          id: '2', 
+          type: 'warning',
+          message: 'High CPU usage detected on database server',
+          timestamp: '1 day ago',
+        },
+      ];
+
+      res.json(alerts);
+    } catch (error) {
+      console.error("Error fetching system alerts:", error);
+      res.status(500).json({ message: "Failed to fetch alerts" });
+    }
+  });
+
+  // Admin Dashboard Endpoints
+  app.get('/api/dashboard/admin/metrics', isAuthenticated, requireRoles(['super_admin', 'admin']), async (req: any, res) => {
+    try {
+      const requestingUserId = req.user.claims.sub;
+      const users = await storage.getUsers({}, requestingUserId);
+      const departments = await storage.getDepartments();
+      const locations = await storage.getLocations();
+      const templates = await storage.getQuestionnaireTemplates(requestingUserId);
+      
+      const metrics = {
+        totalEmployees: users.length,
+        departments: departments.length,
+        locations: locations.length,
+        questionnaireTemplates: templates.length,
+        configurationComplete: 85, // Placeholder - calculate based on setup completeness
+        pendingSetups: 3, // Placeholder
+        activeUsers: users.filter(u => u.status === 'active').length,
+        systemIntegrations: 5, // Placeholder
+      };
+
+      res.json(metrics);
+    } catch (error) {
+      console.error("Error fetching admin metrics:", error);
+      res.status(500).json({ message: "Failed to fetch metrics" });
+    }
+  });
+
+  app.get('/api/dashboard/admin/setup-items', isAuthenticated, requireRoles(['super_admin', 'admin']), async (req: any, res) => {
+    try {
+      const departments = await storage.getDepartments();
+      const locations = await storage.getLocations();
+      const requestingUserId = req.user.claims.sub;
+      const templates = await storage.getQuestionnaireTemplates(requestingUserId);
+      
+      const setupItems = [
+        {
+          id: '1',
+          name: 'Configure Departments',
+          status: departments.length > 0 ? 'completed' : 'pending',
+          description: 'Set up organizational departments',
+          priority: 'high',
+        },
+        {
+          id: '2',
+          name: 'Add Locations',
+          status: locations.length > 0 ? 'completed' : 'pending',
+          description: 'Configure office locations',
+          priority: 'medium',
+        },
+        {
+          id: '3',
+          name: 'Create Questionnaire Templates',
+          status: templates.length > 0 ? 'completed' : 'pending',
+          description: 'Build evaluation questionnaires',
+          priority: 'high',
+        },
+        {
+          id: '4',
+          name: 'Email Service Configuration',
+          status: 'pending',
+          description: 'Configure SMTP settings',
+          priority: 'medium',
+        },
+      ];
+
+      res.json(setupItems);
+    } catch (error) {
+      console.error("Error fetching setup items:", error);
+      res.status(500).json({ message: "Failed to fetch setup items" });
+    }
+  });
+
+  app.get('/api/dashboard/admin/departments', isAuthenticated, requireRoles(['super_admin', 'admin']), async (req: any, res) => {
+    try {
+      const departments = await storage.getDepartments();
+      const requestingUserId = req.user.claims.sub;
+      const users = await storage.getUsers({}, requestingUserId);
+      
+      const departmentStats = departments.map(dept => {
+        const deptUsers = users.filter(u => u.departmentId === dept.id);
+        const managers = deptUsers.filter(u => u.role === 'manager');
+        
+        return {
+          id: dept.id,
+          name: dept.name,
+          employeeCount: deptUsers.length,
+          managersCount: managers.length,
+          completionRate: Math.floor(Math.random() * 40) + 60, // Placeholder
+        };
+      });
+
+      res.json(departmentStats);
+    } catch (error) {
+      console.error("Error fetching department stats:", error);
+      res.status(500).json({ message: "Failed to fetch department stats" });
+    }
+  });
+
+  // HR Manager Dashboard Endpoints
+  app.get('/api/dashboard/hr-manager/metrics', isAuthenticated, requireRoles(['super_admin', 'admin', 'hr_manager']), async (req: any, res) => {
+    try {
+      const initiatedAppraisals = await storage.getInitiatedAppraisals();
+      const evaluations = await storage.getEvaluations();
+      const activeAppraisals = initiatedAppraisals.filter(a => a.status === 'active');
+      
+      const totalEmployeesInCycle = activeAppraisals.reduce((sum, appraisal) => 
+        sum + (appraisal.employeeIds?.length || 0), 0);
+      
+      const completedEvaluations = evaluations.filter(e => e.status === 'completed');
+      const pendingEvaluations = evaluations.filter(e => e.status === 'in_progress');
+      const overdueEvaluations = evaluations.filter(e => {
+        // Simple logic for overdue - in reality would check actual dates
+        return e.status === 'in_progress' && Math.random() < 0.1;
+      });
+      
+      const metrics = {
+        activeAppraisalCycles: activeAppraisals.length,
+        totalEmployeesInCycle,
+        completionRate: evaluations.length > 0 ? 
+          Math.round((completedEvaluations.length / evaluations.length) * 100) : 0,
+        pendingEvaluations: pendingEvaluations.length,
+        overdueEvaluations: overdueEvaluations.length,
+        upcomingDeadlines: pendingEvaluations.filter(e => Math.random() < 0.3).length,
+        averageRating: 4.2, // Placeholder
+        managerReviewsPending: evaluations.filter(e => 
+          e.selfEvaluationData && !e.managerEvaluationData).length,
+      };
+
+      res.json(metrics);
+    } catch (error) {
+      console.error("Error fetching HR manager metrics:", error);
+      res.status(500).json({ message: "Failed to fetch metrics" });
+    }
+  });
+
+  app.get('/api/dashboard/hr-manager/cycles', isAuthenticated, requireRoles(['super_admin', 'admin', 'hr_manager']), async (req: any, res) => {
+    try {
+      const initiatedAppraisals = await storage.getInitiatedAppraisals();
+      
+      const cycles = initiatedAppraisals.map(appraisal => ({
+        id: appraisal.id,
+        name: appraisal.displayName || 'Appraisal Cycle',
+        startDate: appraisal.publishedAt ? 
+          (typeof appraisal.publishedAt === 'string' ? 
+            appraisal.publishedAt.split('T')[0] : 
+            new Date(appraisal.publishedAt).toISOString().split('T')[0]) : 'N/A',
+        endDate: 'TBD', // Would need end date field
+        status: appraisal.status,
+        employeeCount: appraisal.employeeIds?.length || 0,
+        completionPercentage: Math.floor(Math.random() * 40) + 40,
+        overdueCount: Math.floor(Math.random() * 3),
+      }));
+
+      res.json(cycles);
+    } catch (error) {
+      console.error("Error fetching appraisal cycles:", error);
+      res.status(500).json({ message: "Failed to fetch cycles" });
+    }
+  });
+
+  app.get('/api/dashboard/hr-manager/group-progress', isAuthenticated, requireRoles(['super_admin', 'admin', 'hr_manager']), async (req: any, res) => {
+    try {
+      const appraisalGroups = await storage.getAppraisalGroups();
+      
+      const groupProgress = appraisalGroups.map(group => ({
+        id: group.id,
+        name: group.displayName || 'Appraisal Group',
+        employeeCount: Math.floor(Math.random() * 20) + 5,
+        selfCompleted: Math.floor(Math.random() * 15) + 3,
+        managerCompleted: Math.floor(Math.random() * 10) + 2,
+        overallProgress: Math.floor(Math.random() * 40) + 50,
+        deadline: '2024-01-31',
+      }));
+
+      res.json(groupProgress);
+    } catch (error) {
+      console.error("Error fetching group progress:", error);
+      res.status(500).json({ message: "Failed to fetch group progress" });
+    }
+  });
+
+  app.get('/api/dashboard/hr-manager/deadlines', isAuthenticated, requireRoles(['super_admin', 'admin', 'hr_manager']), async (req: any, res) => {
+    try {
+      const evaluations = await storage.getEvaluations();
+      const requestingUserId = req.user.claims.sub;
+      const users = await storage.getUsers({}, requestingUserId);
+      
+      const pendingEvaluations = evaluations.filter(e => e.status === 'in_progress');
+      
+      const upcomingDeadlines = pendingEvaluations.slice(0, 10).map(evaluation => {
+        const employee = users.find(u => u.id === evaluation.employeeId);
+        const daysRemaining = Math.floor(Math.random() * 10) + 1;
+        
+        return {
+          id: evaluation.id,
+          employeeName: employee ? `${employee.firstName} ${employee.lastName}` : 'Unknown',
+          evaluationType: evaluation.selfEvaluationData ? 'manager' : 'self',
+          dueDate: 'Jan 31, 2024',
+          daysRemaining,
+          priority: daysRemaining <= 2 ? 'high' : daysRemaining <= 5 ? 'medium' : 'low',
+        };
+      });
+
+      res.json(upcomingDeadlines);
+    } catch (error) {
+      console.error("Error fetching upcoming deadlines:", error);
+      res.status(500).json({ message: "Failed to fetch deadlines" });
+    }
+  });
+
+  // Manager Dashboard Endpoints
+  app.get('/api/dashboard/manager/metrics', isAuthenticated, requireRoles(['super_admin', 'admin', 'manager']), async (req: any, res) => {
+    try {
+      const requestingUserId = req.user.claims.sub;
+      const users = await storage.getUsers({}, requestingUserId);
+      const evaluations = await storage.getEvaluations();
+      
+      // Get direct reports
+      const directReports = users.filter(u => u.managerId === requestingUserId);
+      const directReportIds = directReports.map(u => u.id);
+      
+      // Get evaluations for direct reports
+      const teamEvaluations = evaluations.filter(e => 
+        directReportIds.includes(e.employeeId));
+      
+      const pendingReviews = teamEvaluations.filter(e => 
+        e.selfEvaluationData && !e.managerEvaluationData);
+      const completedReviews = teamEvaluations.filter(e => 
+        e.managerEvaluationData);
+      const overdueReviews = teamEvaluations.filter(e => 
+        e.status === 'in_progress' && Math.random() < 0.1);
+      
+      const metrics = {
+        directReports: directReports.length,
+        pendingReviews: pendingReviews.length,
+        completedReviews: completedReviews.length,
+        scheduledMeetings: Math.floor(Math.random() * 5) + 2,
+        overdueReviews: overdueReviews.length,
+        teamAverageRating: 4.1,
+        meetingsCompleted: Math.floor(Math.random() * 8) + 3,
+        teamCompletionRate: teamEvaluations.length > 0 ? 
+          Math.round((completedReviews.length / teamEvaluations.length) * 100) : 0,
+      };
+
+      res.json(metrics);
+    } catch (error) {
+      console.error("Error fetching manager metrics:", error);
+      res.status(500).json({ message: "Failed to fetch metrics" });
+    }
+  });
+
+  app.get('/api/dashboard/manager/direct-reports', isAuthenticated, requireRoles(['super_admin', 'admin', 'manager']), async (req: any, res) => {
+    try {
+      const requestingUserId = req.user.claims.sub;
+      const users = await storage.getUsers({}, requestingUserId);
+      const evaluations = await storage.getEvaluations();
+      
+      const directReports = users.filter(u => u.managerId === requestingUserId);
+      
+      const reportsWithStatus = directReports.map(report => {
+        const userEvaluations = evaluations.filter(e => e.employeeId === report.id);
+        const latestEvaluation = userEvaluations[0]; // Assuming latest first
+        
+        return {
+          id: report.id,
+          name: `${report.firstName} ${report.lastName}`,
+          position: report.position || 'Employee',
+          selfEvaluationStatus: latestEvaluation?.selfEvaluationData ? 'completed' : 
+            Math.random() < 0.2 ? 'overdue' : 'pending',
+          managerReviewStatus: latestEvaluation?.managerEvaluationData ? 'completed' :
+            latestEvaluation?.selfEvaluationData ? 'pending' : 'not_started',
+          meetingStatus: Math.random() < 0.3 ? 'completed' : 
+            Math.random() < 0.5 ? 'scheduled' : 'not_scheduled',
+          dueDate: '2024-01-31',
+          rating: latestEvaluation?.managerEvaluationData ? 
+            Math.floor(Math.random() * 2) + 4 : undefined,
+        };
+      });
+
+      res.json(reportsWithStatus);
+    } catch (error) {
+      console.error("Error fetching direct reports:", error);
+      res.status(500).json({ message: "Failed to fetch direct reports" });
+    }
+  });
+
+  app.get('/api/dashboard/manager/meetings', isAuthenticated, requireRoles(['super_admin', 'admin', 'manager']), async (req: any, res) => {
+    try {
+      const requestingUserId = req.user.claims.sub;
+      const users = await storage.getUsers({}, requestingUserId);
+      const directReports = users.filter(u => u.managerId === requestingUserId);
+      
+      // Mock upcoming meetings
+      const upcomingMeetings = directReports.slice(0, 5).map((report, index) => ({
+        id: `meeting-${index}`,
+        employeeName: `${report.firstName} ${report.lastName}`,
+        date: new Date(Date.now() + (index + 1) * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        time: ['10:00 AM', '2:00 PM', '11:30 AM', '3:30 PM', '9:00 AM'][index],
+        duration: [30, 45, 60, 30, 45][index],
+        location: index % 2 === 0 ? 'Conference Room A' : 'Video Call',
+        type: 'performance_review',
+        status: Math.random() < 0.7 ? 'confirmed' : 'scheduled',
+      }));
+
+      res.json(upcomingMeetings);
+    } catch (error) {
+      console.error("Error fetching manager meetings:", error);
+      res.status(500).json({ message: "Failed to fetch meetings" });
+    }
+  });
+
+  app.get('/api/dashboard/manager/team-metrics', isAuthenticated, requireRoles(['super_admin', 'admin', 'manager']), async (req: any, res) => {
+    try {
+      const teamMetrics = [
+        {
+          metric: 'Avg Performance Rating',
+          current: 4.2,
+          previous: 4.0,
+          trend: 'up',
+          unit: 'rating',
+        },
+        {
+          metric: 'Review Completion',
+          current: 85,
+          previous: 78,
+          trend: 'up',
+          unit: 'percentage',
+        },
+        {
+          metric: 'Goal Achievement',
+          current: 92,
+          previous: 95,
+          trend: 'down',
+          unit: 'percentage',
+        },
+        {
+          metric: 'Team Engagement',
+          current: 88,
+          previous: 88,
+          trend: 'stable',
+          unit: 'percentage',
+        },
+      ];
+
+      res.json(teamMetrics);
+    } catch (error) {
+      console.error("Error fetching team metrics:", error);
+      res.status(500).json({ message: "Failed to fetch team metrics" });
+    }
+  });
+
+  // Employee Dashboard Endpoints
+  app.get('/api/dashboard/employee/metrics', isAuthenticated, requireRoles(['super_admin', 'admin', 'hr_manager', 'manager', 'employee']), async (req: any, res) => {
+    try {
+      const requestingUserId = req.user.claims.sub;
+      const evaluations = await storage.getEvaluations();
+      
+      const userEvaluations = evaluations.filter(e => e.employeeId === requestingUserId);
+      const completedEvaluations = userEvaluations.filter(e => e.status === 'completed');
+      const pendingEvaluations = userEvaluations.filter(e => e.status === 'in_progress');
+      const overdueEvaluations = userEvaluations.filter(e => 
+        e.status === 'in_progress' && Math.random() < 0.1);
+      
+      // Calculate average rating from completed evaluations
+      const ratingsSum = completedEvaluations.reduce((sum, evaluation) => {
+        // Mock rating calculation
+        return sum + (Math.floor(Math.random() * 2) + 4);
+      }, 0);
+      const averageRating = completedEvaluations.length > 0 ? 
+        ratingsSum / completedEvaluations.length : 0;
+      
+      const metrics = {
+        totalEvaluations: userEvaluations.length,
+        completedEvaluations: completedEvaluations.length,
+        pendingEvaluations: pendingEvaluations.length,
+        overdueEvaluations: overdueEvaluations.length,
+        averageRating,
+        lastEvaluationDate: completedEvaluations.length > 0 && completedEvaluations[0].submittedAt ? 
+          (typeof completedEvaluations[0].submittedAt === 'string' ? 
+            completedEvaluations[0].submittedAt.split('T')[0] : 
+            new Date(completedEvaluations[0].submittedAt).toISOString().split('T')[0]) : 'N/A',
+        nextDeadline: pendingEvaluations.length > 0 ? '2024-01-31' : 'None',
+        improvementGoals: Math.floor(Math.random() * 5) + 2,
+      };
+
+      res.json(metrics);
+    } catch (error) {
+      console.error("Error fetching employee metrics:", error);
+      res.status(500).json({ message: "Failed to fetch metrics" });
+    }
+  });
+
+  app.get('/api/dashboard/employee/evaluations', isAuthenticated, requireRoles(['super_admin', 'admin', 'hr_manager', 'manager', 'employee']), async (req: any, res) => {
+    try {
+      const requestingUserId = req.user.claims.sub;
+      const evaluations = await storage.getEvaluations();
+      const users = await storage.getUsers({}, requestingUserId);
+      
+      const userEvaluations = evaluations.filter(e => e.employeeId === requestingUserId);
+      
+      const evaluationHistory = userEvaluations.map(evaluation => {
+        const manager = users.find(u => u.id === evaluation.managerId);
+        
+        return {
+          id: evaluation.id,
+          period: 'Q4 2023', // Mock period
+          type: 'self',
+          status: evaluation.status === 'completed' ? 'completed' : 
+            Math.random() < 0.1 ? 'overdue' : 'pending',
+          dueDate: '2024-01-31',
+          submittedDate: evaluation.submittedAt ? 
+            (typeof evaluation.submittedAt === 'string' ? 
+              evaluation.submittedAt.split('T')[0] : 
+              new Date(evaluation.submittedAt).toISOString().split('T')[0]) : undefined,
+          rating: evaluation.status === 'completed' ? 
+            Math.floor(Math.random() * 2) + 4 : undefined,
+          managerName: manager ? `${manager.firstName} ${manager.lastName}` : undefined,
+          managerFeedback: evaluation.managerEvaluationData ? 'Feedback provided' : undefined,
+        };
+      });
+
+      res.json(evaluationHistory);
+    } catch (error) {
+      console.error("Error fetching employee evaluations:", error);
+      res.status(500).json({ message: "Failed to fetch evaluations" });
+    }
+  });
+
+  app.get('/api/dashboard/employee/tasks', isAuthenticated, requireRoles(['super_admin', 'admin', 'hr_manager', 'manager', 'employee']), async (req: any, res) => {
+    try {
+      const requestingUserId = req.user.claims.sub;
+      const evaluations = await storage.getEvaluations();
+      
+      const userEvaluations = evaluations.filter(e => e.employeeId === requestingUserId);
+      const pendingEvaluations = userEvaluations.filter(e => e.status === 'in_progress');
+      
+      const upcomingTasks = pendingEvaluations.map((evaluation, index) => ({
+        id: evaluation.id,
+        title: 'Complete Self-Evaluation',
+        type: 'evaluation',
+        dueDate: '2024-01-31',
+        priority: index < 2 ? 'high' : 'medium',
+        description: 'Complete your quarterly performance self-evaluation',
+        status: 'pending',
+      }));
+
+      // Add some mock additional tasks
+      upcomingTasks.push(
+        {
+          id: 'goal-1',
+          title: 'Update Development Goals',
+          type: 'goal',
+          dueDate: '2024-02-15',
+          priority: 'medium',
+          description: 'Review and update your professional development goals',
+          status: 'pending',
+        },
+        {
+          id: 'meeting-1',
+          title: 'One-on-One with Manager',
+          type: 'meeting',
+          dueDate: '2024-01-25',
+          priority: 'high',
+          description: 'Quarterly performance review meeting',
+          status: 'pending',
+        }
+      );
+
+      res.json(upcomingTasks);
+    } catch (error) {
+      console.error("Error fetching employee tasks:", error);
+      res.status(500).json({ message: "Failed to fetch tasks" });
+    }
+  });
+
+  app.get('/api/dashboard/employee/goals', isAuthenticated, requireRoles(['super_admin', 'admin', 'hr_manager', 'manager', 'employee']), async (req: any, res) => {
+    try {
+      // Mock goals for now - in a real app these would be stored in database
+      const goals = [
+        {
+          id: '1',
+          title: 'Improve JavaScript Skills',
+          description: 'Complete advanced JavaScript course and build 3 projects',
+          progress: 75,
+          targetDate: '2024-03-31',
+          status: 'on_track',
+          category: 'technical',
+        },
+        {
+          id: '2',
+          title: 'Team Leadership',
+          description: 'Lead 2 cross-functional projects and mentor junior developers',
+          progress: 50,
+          targetDate: '2024-06-30',
+          status: 'on_track',
+          category: 'leadership',
+        },
+        {
+          id: '3',
+          title: 'Communication Skills',
+          description: 'Present at team meetings and improve stakeholder communication',
+          progress: 30,
+          targetDate: '2024-04-30',
+          status: 'at_risk',
+          category: 'communication',
+        },
+        {
+          id: '4',
+          title: 'Productivity Improvement',
+          description: 'Increase sprint velocity by 20% through better planning',
+          progress: 90,
+          targetDate: '2024-02-28',
+          status: 'on_track',
+          category: 'productivity',
+        },
+      ];
+
+      res.json(goals);
+    } catch (error) {
+      console.error("Error fetching employee goals:", error);
+      res.status(500).json({ message: "Failed to fetch goals" });
     }
   });
 
