@@ -17,7 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 import { RoleGuard } from "@/components/RoleGuard";
 import { useAuth } from "@/hooks/useAuth";
 import { isUnauthorizedError } from "@/lib/authUtils";
-import { Plus, Search, Filter, Edit, Trash2, Key } from "lucide-react";
+import { Plus, Search, Filter, Edit, Trash2, Key, Upload, Download, FileSpreadsheet, CheckCircle, XCircle } from "lucide-react";
 
 export default function EmployeeManagement() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -25,6 +25,9 @@ export default function EmployeeManagement() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [isBulkUploadModalOpen, setIsBulkUploadModalOpen] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [uploadResults, setUploadResults] = useState<any>(null);
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -146,6 +149,113 @@ export default function EmployeeManagement() {
       });
     },
   });
+
+  const handleDownloadTemplate = async () => {
+    try {
+      const response = await fetch('/api/users/bulk-upload/template', {
+        method: 'GET',
+        credentials: 'include',
+      });
+      
+      if (!response.ok) throw new Error('Failed to download template');
+      
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'user_bulk_upload_template.xlsx';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+      
+      toast({
+        title: "Success",
+        description: "Template downloaded successfully",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to download template",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const bulkUploadMutation = useMutation({
+    mutationFn: async (file: File) => {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+          try {
+            const base64 = e.target?.result as string;
+            const fileData = base64.split(',')[1]; // Remove data:...;base64, prefix
+            
+            const result = await apiRequest("POST", "/api/users/bulk-upload", { fileData });
+            resolve(result);
+          } catch (error) {
+            reject(error);
+          }
+        };
+        reader.onerror = () => reject(new Error('Failed to read file'));
+        reader.readAsDataURL(file);
+      });
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+      queryClient.invalidateQueries({ predicate: (query) => 
+        Array.isArray(query.queryKey) && query.queryKey[0] === "/api/users" 
+      });
+      setUploadResults(data);
+      setSelectedFile(null);
+      toast({
+        title: "Bulk Upload Completed",
+        description: `${data.summary.successful} users created successfully, ${data.summary.failed} failed`,
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: "Failed to process bulk upload",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      // Validate file type
+      if (!file.name.endsWith('.xlsx') && !file.name.endsWith('.xls')) {
+        toast({
+          title: "Invalid File",
+          description: "Please select an Excel file (.xlsx or .xls)",
+          variant: "destructive",
+        });
+        return;
+      }
+      setSelectedFile(file);
+      setUploadResults(null);
+    }
+  };
+
+  const handleBulkUpload = () => {
+    if (!selectedFile) {
+      toast({
+        title: "No File Selected",
+        description: "Please select a file to upload",
+        variant: "destructive",
+      });
+      return;
+    }
+    bulkUploadMutation.mutate(selectedFile);
+  };
+
+  const handleCloseBulkUploadModal = () => {
+    setIsBulkUploadModalOpen(false);
+    setSelectedFile(null);
+    setUploadResults(null);
+  };
 
   // Create a schema that handles empty passwords properly for updates
   const flexibleUserSchema = z.object({
@@ -320,18 +430,27 @@ export default function EmployeeManagement() {
             <h1 className="text-2xl font-semibold">User Management</h1>
             <p className="text-muted-foreground">Manage user profiles and roles</p>
           </div>
-          <Dialog open={isCreateModalOpen || !!editingUser} onOpenChange={(open) => {
-            if (!open) {
-              setIsCreateModalOpen(false);
-              resetForm();
-            }
-          }}>
-            <DialogTrigger asChild>
-              <Button onClick={() => setIsCreateModalOpen(true)} data-testid="add-user-button">
-                <Plus className="h-4 w-4 mr-2" />
-                Add User
-              </Button>
-            </DialogTrigger>
+          <div className="flex gap-2">
+            <Button 
+              variant="outline" 
+              onClick={() => setIsBulkUploadModalOpen(true)} 
+              data-testid="bulk-upload-button"
+            >
+              <Upload className="h-4 w-4 mr-2" />
+              Bulk Upload
+            </Button>
+            <Dialog open={isCreateModalOpen || !!editingUser} onOpenChange={(open) => {
+              if (!open) {
+                setIsCreateModalOpen(false);
+                resetForm();
+              }
+            }}>
+              <DialogTrigger asChild>
+                <Button onClick={() => setIsCreateModalOpen(true)} data-testid="add-user-button">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add User
+                </Button>
+              </DialogTrigger>
             <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>{editingUser ? "Edit User" : "Add New User"}</DialogTitle>
@@ -784,7 +903,147 @@ export default function EmployeeManagement() {
               </Form>
             </DialogContent>
           </Dialog>
+          </div>
         </div>
+
+        {/* Bulk Upload Modal */}
+        <Dialog open={isBulkUploadModalOpen} onOpenChange={handleCloseBulkUploadModal}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Bulk Upload Users</DialogTitle>
+              <DialogDescription>
+                Upload an Excel file to create multiple users at once
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="space-y-4">
+              {/* Download Template Section */}
+              <div className="border rounded-lg p-4 bg-muted/50">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <h3 className="font-medium flex items-center gap-2">
+                      <FileSpreadsheet className="h-4 w-4" />
+                      Download Sample Template
+                    </h3>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Start by downloading the sample template with the required format
+                    </p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    onClick={handleDownloadTemplate}
+                    data-testid="download-template-button"
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    Download
+                  </Button>
+                </div>
+              </div>
+
+              {/* File Upload Section */}
+              <div className="border-2 border-dashed rounded-lg p-6">
+                <div className="flex flex-col items-center gap-2">
+                  <Upload className="h-8 w-8 text-muted-foreground" />
+                  <div className="text-center">
+                    <p className="font-medium">Upload Excel File</p>
+                    <p className="text-sm text-muted-foreground">
+                      Select the filled template to upload
+                    </p>
+                  </div>
+                  <Input
+                    type="file"
+                    accept=".xlsx,.xls"
+                    onChange={handleFileSelect}
+                    className="mt-2"
+                    data-testid="file-input"
+                  />
+                  {selectedFile && (
+                    <p className="text-sm text-green-600 mt-2">
+                      Selected: {selectedFile.name}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Upload Results */}
+              {uploadResults && (
+                <div className="border rounded-lg p-4">
+                  <h3 className="font-medium mb-3">Upload Results</h3>
+                  <div className="grid grid-cols-3 gap-4 mb-4">
+                    <div className="text-center">
+                      <p className="text-2xl font-bold">{uploadResults.summary.total}</p>
+                      <p className="text-sm text-muted-foreground">Total</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-2xl font-bold text-green-600">{uploadResults.summary.successful}</p>
+                      <p className="text-sm text-muted-foreground">Successful</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-2xl font-bold text-red-600">{uploadResults.summary.failed}</p>
+                      <p className="text-sm text-muted-foreground">Failed</p>
+                    </div>
+                  </div>
+
+                  {/* Success List */}
+                  {uploadResults.results.success.length > 0 && (
+                    <div className="mb-4">
+                      <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
+                        <CheckCircle className="h-4 w-4 text-green-600" />
+                        Successfully Created ({uploadResults.results.success.length})
+                      </h4>
+                      <div className="max-h-40 overflow-y-auto space-y-1">
+                        {uploadResults.results.success.map((item: any, index: number) => (
+                          <div key={index} className="text-sm bg-green-50 p-2 rounded">
+                            Row {item.row}: {item.name} ({item.email})
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Error List */}
+                  {uploadResults.results.errors.length > 0 && (
+                    <div>
+                      <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
+                        <XCircle className="h-4 w-4 text-red-600" />
+                        Errors ({uploadResults.results.errors.length})
+                      </h4>
+                      <div className="max-h-40 overflow-y-auto space-y-1">
+                        {uploadResults.results.errors.map((item: any, index: number) => (
+                          <div key={index} className="text-sm bg-red-50 p-2 rounded">
+                            Row {item.row}: {item.error} {item.email && `(${item.email})`}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div className="flex gap-3">
+                <Button
+                  variant="outline"
+                  onClick={handleCloseBulkUploadModal}
+                  className="flex-1"
+                  data-testid="cancel-bulk-upload"
+                >
+                  {uploadResults ? 'Close' : 'Cancel'}
+                </Button>
+                {!uploadResults && (
+                  <Button
+                    onClick={handleBulkUpload}
+                    disabled={!selectedFile || bulkUploadMutation.isPending}
+                    className="flex-1"
+                    data-testid="submit-bulk-upload"
+                  >
+                    {bulkUploadMutation.isPending ? 'Uploading...' : 'Upload Users'}
+                  </Button>
+                )}
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
 
         {/* Filters */}
         <Card>
