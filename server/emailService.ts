@@ -222,6 +222,35 @@ export async function sendReviewReminder(employeeEmail: string, employeeName: st
   });
 }
 
+export async function sendAppraisalInitiationEmail(employeeEmail: string, employeeName: string, appraisalType: string, dueDate?: Date): Promise<void> {
+  const dueDateStr = dueDate ? dueDate.toLocaleDateString() : 'TBD';
+  const subject = 'New Performance Appraisal - Action Required';
+  const appraisalLink = `${process.env.REPLIT_DOMAINS?.split(',')[0] || 'localhost:5000'}/employee/evaluations`;
+  
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <h2 style="color: #2563eb;">New Performance Appraisal Initiated</h2>
+      <p>Dear ${employeeName},</p>
+      <p>A new ${appraisalType.replace('_', ' ').toUpperCase()} performance appraisal has been initiated for you.</p>
+      <p><strong>Due Date:</strong> ${dueDateStr}</p>
+      <p>Please complete your self-evaluation and prepare for your performance review meeting.</p>
+      <div style="text-align: center; margin: 20px 0;">
+        <a href="${appraisalLink}" style="background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
+          View Appraisal
+        </a>
+      </div>
+      <p>If you have any questions, please contact your HR manager or your reporting manager.</p>
+      <p>Best regards,<br>HR Team</p>
+    </div>
+  `;
+  
+  return emailService.sendEmail({
+    to: employeeEmail,
+    subject,
+    html,
+  });
+}
+
 export async function sendReviewCompletion(employeeEmail: string, employeeName: string, managerName: string): Promise<void> {
   const { subject, html } = emailService.generateReviewCompletionEmail(employeeName, managerName);
   return emailService.sendEmail({
