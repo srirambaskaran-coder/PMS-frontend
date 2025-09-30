@@ -107,7 +107,7 @@ export interface IStorage {
   deleteLocation(id: string): Promise<void>;
   
   // User management operations
-  getUsers(filters?: { role?: string; department?: string; status?: string }, requestingUserId?: string): Promise<SafeUser[]>;
+  getUsers(filters?: { role?: string; department?: string; status?: string; companyId?: string }, requestingUserId?: string): Promise<SafeUser[]>;
   getUserByEmail(email: string): Promise<User | undefined>; // Keep as User for internal auth
   createUser(user: InsertUser, creatorId?: string): Promise<SafeUser>;
   updateUser(id: string, user: Partial<InsertUser>, requestingUserId?: string): Promise<SafeUser>;
@@ -351,17 +351,27 @@ export class DatabaseStorage implements IStorage {
   }
 
   // User management operations
-  async getUsers(filters?: { role?: string; department?: string; status?: string }, requestingUserId?: string): Promise<SafeUser[]> {
+  async getUsers(filters?: { role?: string; department?: string; status?: string; companyId?: string }, requestingUserId?: string): Promise<SafeUser[]> {
     const conditions = [];
     
-    // SECURITY: Administrator isolation - only see users they created
+    // SECURITY: Company isolation for Administrators and HR Managers
     if (requestingUserId) {
       const requestingUser = await this.getUser(requestingUserId);
-      if (requestingUser && requestingUser.role === 'admin') {
-        // Administrators can only see users they created
-        conditions.push(eq(users.createdById, requestingUserId));
+      if (requestingUser && (requestingUser.role === 'admin' || requestingUser.role === 'hr_manager')) {
+        if (!requestingUser.companyId) {
+          // Admin/HR Manager without company cannot view any users
+          return [];
+        }
+        // Force company filter for administrators and HR managers
+        conditions.push(eq(users.companyId, requestingUser.companyId));
       }
-      // Super admins and other roles can see all users (no additional filter)
+      // Super admins and other roles can see all users (no automatic filter)
+      // But they can still use explicit companyId filter if provided
+    }
+    
+    // SECURITY: Explicit company filter (for super admins and other roles)
+    if (filters?.companyId && !conditions.find(c => c.toString().includes('companyId'))) {
+      conditions.push(eq(users.companyId, filters.companyId));
     }
     
     if (filters?.role) {

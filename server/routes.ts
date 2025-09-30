@@ -946,11 +946,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { role, department, status } = req.query;
       const requestingUserId = req.user.claims.sub;
+      
+      // SECURITY: Get current user to check company restrictions for admins
+      const currentUser = await storage.getUser(requestingUserId);
+      if (!currentUser) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      // SECURITY: Reject administrators and HR managers without company assignment
+      if ((currentUser.role === 'admin' || currentUser.role === 'hr_manager') && !currentUser.companyId) {
+        return res.status(403).json({ 
+          message: `${currentUser.role === 'admin' ? 'Administrator' : 'HR Manager'} must be assigned to a company before accessing user management.`
+        });
+      }
+      
       const filters = {
         role: role as string,
         department: department as string,
         status: status as string,
       };
+      // Storage layer will automatically filter by company for admins
       const users = await storage.getUsers(filters, requestingUserId);
       res.json(users);
     } catch (error) {
@@ -966,6 +981,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Check for duplicates before creating user - more efficient individual checks
       const creator = await storage.getUser(creatorId);
+      
+      // SECURITY: Enforce company restriction for Administrators
+      if (creator && creator.role === 'admin') {
+        if (!creator.companyId) {
+          return res.status(403).json({ 
+            message: "Administrator must be assigned to a company before creating users."
+          });
+        }
+        // Force the user to be created in the admin's company
+        userData.companyId = creator.companyId;
+      }
       
       // Check for duplicate email
       if (userData.email) {
@@ -1029,17 +1055,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const requestingUserId = req.user.claims.sub;
       const { password, confirmPassword, ...otherFields } = req.body;
       
+      // SECURITY: Get current user and target user for company restriction check
+      const currentUser = await storage.getUser(requestingUserId);
+      const targetUser = await storage.getUser(id);
+      
+      if (!currentUser || !targetUser) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      // SECURITY: Enforce company restriction for Administrators
+      if (currentUser.role === 'admin') {
+        if (!currentUser.companyId) {
+          return res.status(403).json({ 
+            message: "Administrator must be assigned to a company before updating users."
+          });
+        }
+        // Verify target user belongs to admin's company
+        if (targetUser.companyId !== currentUser.companyId) {
+          return res.status(403).json({ 
+            message: "Administrators can only manage users in their own company."
+          });
+        }
+        // Force the user to stay in the admin's company (prevent company transfer)
+        if (otherFields.companyId && otherFields.companyId !== currentUser.companyId) {
+          otherFields.companyId = currentUser.companyId;
+        }
+      }
+      
       // SECURITY: Detect if this is a password update vs a regular update
       const isPasswordUpdate = password || confirmPassword;
       
       if (isPasswordUpdate) {
-        // SECURITY: Get current user and target user for authorization checks
-        const currentUser = await storage.getUser(requestingUserId);
-        const targetUser = await storage.getUser(id);
-        
-        if (!currentUser || !targetUser) {
-          return res.status(404).json({ message: "User not found" });
-        }
+        // Variables already declared above for company restriction check
         
         const isSuperAdmin = currentUser.role === 'super_admin';
         const isAdmin = currentUser.role === 'admin';

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -39,7 +39,7 @@ export default function EmployeeManagement() {
     const isSuperAdmin = currentUser.role === 'super_admin';
     const isAdmin = currentUser.role === 'admin';
     const isUserCreatedByAdmin = user.createdById !== null && user.createdById === currentUser.id;
-    const isTargetPrivileged = ['admin', 'super_admin'].includes(user.role);
+    const isTargetPrivileged = user.role && ['admin', 'super_admin'].includes(user.role);
     
     return isSuperAdmin || (isAdmin && isUserCreatedByAdmin && !isTargetPrivileged);
   };
@@ -193,7 +193,7 @@ export default function EmployeeManagement() {
       designation: "",
       mobileNumber: "",
       locationId: "none",
-      companyId: "none",
+      companyId: isAdmin && currentUser?.companyId ? currentUser.companyId : "none",
       levelId: "none",
       gradeId: "none",
       reportingManagerId: "none",
@@ -204,6 +204,13 @@ export default function EmployeeManagement() {
       confirmPassword: "",
     },
   });
+
+  // Update form companyId when currentUser loads (for admins)
+  useEffect(() => {
+    if (isAdmin && currentUser?.companyId && !editingUser) {
+      form.setValue("companyId", currentUser.companyId);
+    }
+  }, [isAdmin, currentUser?.companyId, editingUser, form]);
 
   const onSubmit = (data: InsertUser) => {
     // Convert "none" placeholder values to null
@@ -216,6 +223,18 @@ export default function EmployeeManagement() {
       reportingManagerId: data.reportingManagerId === "none" ? null : data.reportingManagerId,
       department: data.department === "none" ? null : data.department,
     };
+
+    // CRITICAL: Force admin users to only create/edit users in their own company
+    if (isAdmin && currentUser?.companyId) {
+      processedData.companyId = currentUser.companyId;
+    } else if (isAdmin && !currentUser?.companyId) {
+      toast({
+        title: "Error",
+        description: "Administrator must be assigned to a company first",
+        variant: "destructive",
+      });
+      return;
+    }
 
     if (editingUser) {
       // For updates, only include password fields if they're actually filled in
@@ -243,7 +262,8 @@ export default function EmployeeManagement() {
       designation: user.designation || "",
       mobileNumber: user.mobileNumber || "",
       locationId: user.locationId || "none",
-      companyId: user.companyId || "none",
+      // CRITICAL: Force admin to use their company when editing
+      companyId: isAdmin && currentUser?.companyId ? currentUser.companyId : (user.companyId || "none"),
       levelId: user.levelId || "none",
       gradeId: user.gradeId || "none",
       reportingManagerId: user.reportingManagerId || "none",
@@ -280,7 +300,7 @@ export default function EmployeeManagement() {
       designation: "",
       mobileNumber: "",
       locationId: "none",
-      companyId: "none",
+      companyId: isAdmin && currentUser?.companyId ? currentUser.companyId : "none",
       levelId: "none",
       gradeId: "none",
       reportingManagerId: "none",
@@ -440,7 +460,11 @@ export default function EmployeeManagement() {
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Company</FormLabel>
-                          <Select onValueChange={field.onChange} value={field.value ?? "none"}>
+                          <Select 
+                            onValueChange={field.onChange} 
+                            value={field.value ?? "none"}
+                            disabled={isAdmin}
+                          >
                             <FormControl>
                               <SelectTrigger data-testid="select-company">
                                 <SelectValue placeholder="Select company" />
@@ -456,6 +480,11 @@ export default function EmployeeManagement() {
                             </SelectContent>
                           </Select>
                           <FormMessage />
+                          {isAdmin && (
+                            <p className="text-xs text-muted-foreground">
+                              As an Administrator, you can only create users for your company
+                            </p>
+                          )}
                         </FormItem>
                       )}
                     />
@@ -645,7 +674,7 @@ export default function EmployeeManagement() {
                           <Badge variant="secondary" className="ml-2">
                             {editingUser.createdById !== currentUser?.id 
                               ? "Creator or Super Admin Required"
-                              : ["admin", "super_admin"].includes(editingUser.role)
+                              : editingUser.role && ["admin", "super_admin"].includes(editingUser.role)
                                 ? "Cannot Change Admin Password"
                                 : "Super Admin Required"
                             }
@@ -659,7 +688,7 @@ export default function EmployeeManagement() {
                             <strong>Note:</strong> {
                               editingUser.createdById !== currentUser?.id
                                 ? "You can only change passwords for users you created, or contact a Super Administrator."
-                                : ["admin", "super_admin"].includes(editingUser.role)
+                                : editingUser.role && ["admin", "super_admin"].includes(editingUser.role)
                                   ? "For security reasons, passwords of Administrator and Super Administrator accounts cannot be changed by other Administrators."
                                   : "Password changes require Super Administrator privileges."
                             }
