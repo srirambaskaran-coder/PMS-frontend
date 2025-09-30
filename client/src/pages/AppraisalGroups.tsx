@@ -100,11 +100,11 @@ export default function AppraisalGroups() {
     queryKey: ['/api/locations'],
   });
 
-  const { data: levels = [] } = useQuery<Array<{id: string, name: string}>>({
+  const { data: levels = [] } = useQuery<Array<{id: string, code: string, description: string}>>({
     queryKey: ['/api/levels'],
   });
 
-  const { data: grades = [] } = useQuery<Array<{id: string, name: string}>>({
+  const { data: grades = [] } = useQuery<Array<{id: string, code: string, description: string}>>({
     queryKey: ['/api/grades'],
   });
 
@@ -323,40 +323,43 @@ export default function AppraisalGroups() {
   // Extract unique filter options from all users
   const getUniqueOptions = (field: 'locationId' | 'department' | 'levelId' | 'gradeId' | 'reportingManagerId' | 'role') => {
     const values = allUsers
-      .map(user => {
+      .flatMap(user => {
         switch (field) {
           case 'locationId':
             return user.locationId ? {
               value: user.locationId,
               label: locations.find(loc => loc.id === user.locationId)?.name || user.locationId
-            } : null;
+            } : [];
           case 'levelId':
             return user.levelId ? {
               value: user.levelId,
-              label: levels.find(level => level.id === user.levelId)?.name || user.levelId
-            } : null;
+              label: levels.find(level => level.id === user.levelId)?.description || user.levelId
+            } : [];
           case 'gradeId':
             return user.gradeId ? {
               value: user.gradeId,
-              label: grades.find(grade => grade.id === user.gradeId)?.name || user.gradeId
-            } : null;
+              label: grades.find(grade => grade.id === user.gradeId)?.description || user.gradeId
+            } : [];
           case 'reportingManagerId':
             return user.reportingManagerId ? {
               value: user.reportingManagerId,
               label: allUsers.find(manager => manager.id === user.reportingManagerId)?.firstName + ' ' + allUsers.find(manager => manager.id === user.reportingManagerId)?.lastName || user.reportingManagerId
-            } : null;
+            } : [];
           case 'role':
-            return user.role ? { 
-              value: user.role, 
-              label: user.role.charAt(0).toUpperCase() + user.role.slice(1).replace('_', ' ')
-            } : null;
+            // Extract roles from both role field and roles array, excluding admin and super_admin
+            const userRoles = [user.role, ...(user.roles || [])].filter((r): r is string => !!r);
+            return userRoles
+              .filter(r => r !== 'admin' && r !== 'super_admin')
+              .map(r => ({
+                value: r,
+                label: r.charAt(0).toUpperCase() + r.slice(1).replace('_', ' ')
+              }));
           case 'department':
-            return user.department ? { value: user.department, label: user.department } : null;
+            return user.department ? { value: user.department, label: user.department } : [];
           default:
-            return null;
+            return [];
         }
       })
-      .filter((item): item is { value: string; label: string } => item !== null)
       .filter((item, index, self) => self.findIndex(i => i.value === item.value) === index)
       .sort((a, b) => a.label.localeCompare(b.label));
     return values;
