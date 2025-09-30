@@ -2290,8 +2290,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Level management routes - Administrator isolated (GET endpoints accessible by HR Manager too)
   app.get('/api/levels', isAuthenticated, requireRoles(['admin', 'hr_manager']), async (req: any, res) => {
     try {
-      const createdById = req.user.claims.sub;
-      const levels = await storage.getLevels(createdById);
+      const requestingUserId = req.user.claims.sub;
+      const requestingUser = await storage.getUser(requestingUserId);
+      
+      if (!requestingUser) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      // For HR Managers, find the admin of their company to access company's levels
+      let adminId = requestingUserId;
+      if (requestingUser.role === 'hr_manager' && requestingUser.companyId) {
+        const companyAdmins = await storage.getUsers({ role: 'admin', companyId: requestingUser.companyId });
+        if (companyAdmins && companyAdmins.length > 0) {
+          adminId = companyAdmins[0].id;
+        }
+      }
+      
+      const levels = await storage.getLevels(adminId);
       res.json(levels);
     } catch (error) {
       console.error("Error fetching levels:", error);
@@ -2375,8 +2390,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Grade management routes - Administrator isolated (GET endpoints accessible by HR Manager too)
   app.get('/api/grades', isAuthenticated, requireRoles(['admin', 'hr_manager']), async (req: any, res) => {
     try {
-      const createdById = req.user.claims.sub;
-      const grades = await storage.getGrades(createdById);
+      const requestingUserId = req.user.claims.sub;
+      const requestingUser = await storage.getUser(requestingUserId);
+      
+      if (!requestingUser) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      // For HR Managers, find the admin of their company to access company's grades
+      let adminId = requestingUserId;
+      if (requestingUser.role === 'hr_manager' && requestingUser.companyId) {
+        const companyAdmins = await storage.getUsers({ role: 'admin', companyId: requestingUser.companyId });
+        if (companyAdmins && companyAdmins.length > 0) {
+          adminId = companyAdmins[0].id;
+        }
+      }
+      
+      const grades = await storage.getGrades(adminId);
       res.json(grades);
     } catch (error) {
       console.error("Error fetching grades:", error);
