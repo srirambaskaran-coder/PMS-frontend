@@ -207,6 +207,8 @@ export default function AppraisalGroups() {
         grade: [],
         reportingManager: [],
         role: [],
+        dojFromDate: undefined,
+        dojTillDate: undefined,
       });
       setAppliedFilters({
         nameOrCode: "",
@@ -216,6 +218,8 @@ export default function AppraisalGroups() {
         grade: [],
         reportingManager: [],
         role: [],
+        dojFromDate: undefined,
+        dojTillDate: undefined,
       });
       toast({
         title: "Success",
@@ -419,7 +423,8 @@ export default function AppraisalGroups() {
     }
 
     // DOJ From Date filter
-    if (appliedFilters.dojFromDate && user.dateOfJoining) {
+    if (appliedFilters.dojFromDate) {
+      if (!user.dateOfJoining) return false;
       const userDoj = new Date(user.dateOfJoining);
       const fromDate = new Date(appliedFilters.dojFromDate);
       fromDate.setHours(0, 0, 0, 0);
@@ -428,7 +433,8 @@ export default function AppraisalGroups() {
     }
 
     // DOJ Till Date filter
-    if (appliedFilters.dojTillDate && user.dateOfJoining) {
+    if (appliedFilters.dojTillDate) {
+      if (!user.dateOfJoining) return false;
       const userDoj = new Date(user.dateOfJoining);
       const tillDate = new Date(appliedFilters.dojTillDate);
       tillDate.setHours(23, 59, 59, 999);
@@ -1048,6 +1054,8 @@ export default function AppraisalGroups() {
                       grade: [],
                       reportingManager: [],
                       role: [],
+                      dojFromDate: undefined,
+                      dojTillDate: undefined,
                     });
                     setAppliedFilters({
                       nameOrCode: "",
@@ -1057,6 +1065,8 @@ export default function AppraisalGroups() {
                       grade: [],
                       reportingManager: [],
                       role: [],
+                      dojFromDate: undefined,
+                      dojTillDate: undefined,
                     });
                   }}
                   data-testid="cancel-employee-selection"
