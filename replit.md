@@ -171,3 +171,33 @@ New table: `scheduled_appraisal_tasks`
 4. Background processor (authenticated) checks for pending tasks
 5. On scheduled date: Creates evaluations + sends emails automatically
 6. Task status updated with results and any error messages
+
+### Multi-Select Period Selection Feature
+
+#### Overview
+HR Managers can now selectively choose specific calendar periods when initiating appraisals, allowing targeted appraisal cycles instead of processing all periods in a frequency calendar.
+
+#### Key Features
+- **Multi-Select UI**: Interactive multi-select component for choosing calendar detail periods
+- **Smart Timing Preservation**: Per-period timing configurations (daysToInitiate, daysToClose, numberOfReminders) persist when modifying selections
+- **Calendar Switch Protection**: Automatically clears selections when switching frequency calendars to prevent cross-calendar contamination
+- **Targeted Publishing**: Backend processes only selected calendar periods, optimizing scheduled task creation
+
+#### User Experience
+1. **Period Selection**: HR Manager selects frequency calendar and chooses specific periods from multiselect dropdown
+2. **Timing Configuration**: Each selected period displays individual timing controls with default values (0, 30, 3)
+3. **Dynamic Edits**: Timing values persist when adding/removing period selections - no data loss
+4. **Calendar Switching**: Selecting a different calendar clears previous selections and timing configs automatically
+
+#### Technical Implementation
+- **Frontend**: `selectedCalendarDetailIds` array in form schema tracks user selections
+- **Timing Merge Logic**: `initializeCalendarDetailTimings` preserves existing configs while adding/removing selections
+- **Backend Filtering**: Scheduled tasks created only for selected calendar details (falls back to all periods if none selected for backward compatibility)
+- **Form State Management**: React Hook Form with Zod validation ensures data consistency across selection changes
+
+#### Data Flow
+1. User selects calendar periods → `selectedCalendarDetailIds` updated
+2. `initializeCalendarDetailTimings` merges with existing form values
+3. Form submission includes both selected IDs and per-period timing configurations
+4. Backend filters calendar details using selected IDs before creating scheduled tasks
+5. Only selected periods generate evaluation tasks and email notifications
