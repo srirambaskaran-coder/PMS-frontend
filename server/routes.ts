@@ -3050,6 +3050,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
+      // If publish type is "as_per_calendar", create scheduled tasks for calendar-based publishing
+      if (validatedData.publishType === 'as_per_calendar') {
+        try {
+          // Get the calendar details for this frequency calendar
+          const calendarDetails = await storage.getFrequencyCalendarDetailsByCalendarId(validatedData.frequencyCalendarId!);
+          
+          // Create scheduled tasks for each calendar detail period
+          for (const detail of calendarDetails) {
+            // Find the timing config for this detail from calendarDetailTimings
+            const timingConfig = validatedData.calendarDetailTimings.find(
+              (t: any) => t.detailId === detail.id
+            );
+            
+            if (!timingConfig) {
+              console.warn(`No timing config found for calendar detail ${detail.id}, skipping`);
+              continue;
+            }
+            
+            // Calculate the scheduled date: detail.startDate + daysToInitiate
+            const scheduledDate = new Date(detail.startDate);
+            scheduledDate.setDate(scheduledDate.getDate() + timingConfig.daysToInitiate);
+            
+            // Create the scheduled task
+            await storage.createScheduledAppraisalTask({
+              initiatedAppraisalId: initiatedAppraisal.id,
+              frequencyCalendarDetailId: detail.id,
+              scheduledDate: scheduledDate,
+              status: 'pending',
+            });
+            
+            console.log(`Created scheduled task for detail ${detail.id} at ${scheduledDate}`);
+          }
+          
+          console.log(`Created ${calendarDetails.length} scheduled tasks for calendar-based appraisal`);
+        } catch (error) {
+          console.error("Error creating scheduled tasks:", error);
+          // Don't fail the request, but log the error
+        }
+      }
+      
       res.status(201).json({
         message: "Appraisal initiated successfully",
         appraisal: { ...initiatedAppraisal, status: validatedData.publishType === 'now' ? 'active' : 'draft' },
@@ -3078,6 +3118,128 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error fetching initiated appraisals:', error);
       res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // POST /api/process-scheduled-tasks - Process pending scheduled appraisal tasks (protected endpoint for cron/scheduler)
+  app.post('/api/process-scheduled-tasks', isAuthenticated, requireRoles(['super_admin', 'admin', 'hr_manager']), async (req: any, res) => {
+    try {
+      const pendingTasks = await storage.getPendingScheduledTasks();
+      
+      if (pendingTasks.length === 0) {
+        return res.json({ message: "No pending tasks to process", tasksProcessed: 0 });
+      }
+      
+      let tasksProcessed = 0;
+      let tasksFailed = 0;
+      
+      for (const task of pendingTasks) {
+        try {
+          console.log(`Processing scheduled task ${task.id} for appraisal ${task.initiatedAppraisalId}`);
+          
+          // Get the initiated appraisal details
+          const [appraisal] = await db.select().from(initiatedAppraisals).where(eq(initiatedAppraisals.id, task.initiatedAppraisalId));
+          if (!appraisal) {
+            throw new Error(`Initiated appraisal ${task.initiatedAppraisalId} not found`);
+          }
+          
+          // Get the calendar detail for timing information
+          const [calendarDetail] = await db.select().from(frequencyCalendarDetails).where(eq(frequencyCalendarDetails.id, task.frequencyCalendarDetailId));
+          if (!calendarDetail) {
+            throw new Error(`Calendar detail ${task.frequencyCalendarDetailId} not found`);
+          }
+          
+          // Get the timing config for this detail
+          const [timingConfig] = await db.select().from(initiatedAppraisalDetailTimings).where(
+            and(
+              eq(initiatedAppraisalDetailTimings.initiatedAppraisalId, appraisal.id),
+              eq(initiatedAppraisalDetailTimings.frequencyCalendarDetailId, calendarDetail.id)
+            )
+          );
+          
+          const daysToClose = timingConfig?.daysToClose || appraisal.daysToClose || 30;
+          
+          // Get all members of the appraisal group
+          const members = await storage.getAppraisalGroupMembers(appraisal.appraisalGroupId, appraisal.createdById);
+          const activeMembers = members.filter(member => member.user && member.user.status === 'active');
+          
+          let evaluationsCreated = 0;
+          let emailsSent = 0;
+          
+          // Create evaluations for each active member
+          for (const member of activeMembers) {
+            const employee = member.user!;
+            
+            // Skip if employee is in excluded list
+            if (appraisal.excludedEmployeeIds?.includes(employee.id)) {
+              continue;
+            }
+            
+            // Get the employee's manager
+            let managerId = employee.reportingManagerId;
+            if (!managerId) {
+              managerId = appraisal.createdById;
+            }
+            
+            // Create evaluation record with initiated appraisal link
+            const evaluationData = {
+              employeeId: employee.id,
+              managerId: managerId,
+              reviewCycleId: 'initiated-appraisal-' + appraisal.id + '-' + calendarDetail.id,
+              initiatedAppraisalId: appraisal.id,
+              status: 'not_started' as const,
+            };
+            
+            try {
+              await storage.createEvaluation(evaluationData);
+              evaluationsCreated++;
+              console.log(`Created evaluation for employee ${employee.id} (${employee.email})`);
+            } catch (evalError) {
+              console.error(`Failed to create evaluation for employee ${employee.id}:`, evalError);
+            }
+            
+            // Send email notification to employee
+            try {
+              const { sendAppraisalInitiationEmail } = await import('./emailService');
+              const dueDate = new Date(calendarDetail.endDate);
+              dueDate.setDate(dueDate.getDate() + daysToClose);
+              
+              await sendAppraisalInitiationEmail(
+                employee.email,
+                `${employee.firstName} ${employee.lastName}`,
+                appraisal.appraisalType,
+                dueDate
+              );
+              emailsSent++;
+              console.log(`Email sent successfully to ${employee.email}`);
+            } catch (emailError) {
+              console.error(`Failed to send email to ${employee.email}:`, emailError);
+            }
+          }
+          
+          // Mark task as completed
+          await storage.updateScheduledTaskStatus(task.id, 'completed');
+          tasksProcessed++;
+          
+          console.log(`Task ${task.id} completed: ${evaluationsCreated} evaluations created, ${emailsSent} emails sent`);
+          
+        } catch (taskError) {
+          console.error(`Error processing task ${task.id}:`, taskError);
+          await storage.updateScheduledTaskStatus(task.id, 'failed', taskError.message);
+          tasksFailed++;
+        }
+      }
+      
+      res.json({
+        message: "Scheduled tasks processing completed",
+        tasksProcessed,
+        tasksFailed,
+        totalTasks: pendingTasks.length
+      });
+      
+    } catch (error) {
+      console.error("Error processing scheduled tasks:", error);
+      res.status(500).json({ message: "Failed to process scheduled tasks" });
     }
   });
 

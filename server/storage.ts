@@ -22,6 +22,7 @@ import {
   appraisalGroupMembers,
   initiatedAppraisals,
   initiatedAppraisalDetailTimings,
+  scheduledAppraisalTasks,
   type User,
   type SafeUser,
   type UpsertUser,
@@ -70,6 +71,8 @@ import {
   type InsertInitiatedAppraisal,
   type InitiatedAppraisalDetailTiming,
   type InsertInitiatedAppraisalDetailTiming,
+  type ScheduledAppraisalTask,
+  type InsertScheduledAppraisalTask,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, asc, like, inArray, or, sql, isNotNull } from "drizzle-orm";
@@ -243,6 +246,12 @@ export interface IStorage {
   createInitiatedAppraisalDetailTiming(timing: InsertInitiatedAppraisalDetailTiming): Promise<InitiatedAppraisalDetailTiming>;
   getInitiatedAppraisalDetailTimings(appraisalId: string): Promise<InitiatedAppraisalDetailTiming[]>;
   getInitiatedAppraisals(createdById: string): Promise<InitiatedAppraisal[]>;
+  
+  // Scheduled Appraisal Task operations
+  createScheduledAppraisalTask(task: InsertScheduledAppraisalTask): Promise<ScheduledAppraisalTask>;
+  getPendingScheduledTasks(): Promise<ScheduledAppraisalTask[]>;
+  updateScheduledTaskStatus(id: string, status: string, error?: string): Promise<void>;
+  getScheduledTasksByAppraisal(appraisalId: string): Promise<ScheduledAppraisalTask[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -2164,6 +2173,44 @@ export class DatabaseStorage implements IStorage {
       percentage,
       employeeProgress,
     };
+  }
+
+  // Scheduled Appraisal Task operations
+  async createScheduledAppraisalTask(task: InsertScheduledAppraisalTask): Promise<ScheduledAppraisalTask> {
+    const [newTask] = await db.insert(scheduledAppraisalTasks).values(task).returning();
+    return newTask;
+  }
+
+  async getPendingScheduledTasks(): Promise<ScheduledAppraisalTask[]> {
+    return await db
+      .select()
+      .from(scheduledAppraisalTasks)
+      .where(
+        and(
+          eq(scheduledAppraisalTasks.status, 'pending'),
+          sql`${scheduledAppraisalTasks.scheduledDate} <= NOW()`
+        )
+      )
+      .orderBy(asc(scheduledAppraisalTasks.scheduledDate));
+  }
+
+  async updateScheduledTaskStatus(id: string, status: string, error?: string): Promise<void> {
+    await db.update(scheduledAppraisalTasks)
+      .set({ 
+        status, 
+        executedAt: new Date(),
+        error: error || null,
+        updatedAt: new Date() 
+      })
+      .where(eq(scheduledAppraisalTasks.id, id));
+  }
+
+  async getScheduledTasksByAppraisal(appraisalId: string): Promise<ScheduledAppraisalTask[]> {
+    return await db
+      .select()
+      .from(scheduledAppraisalTasks)
+      .where(eq(scheduledAppraisalTasks.initiatedAppraisalId, appraisalId))
+      .orderBy(asc(scheduledAppraisalTasks.scheduledDate));
   }
 }
 
