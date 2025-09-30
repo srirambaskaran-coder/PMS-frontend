@@ -418,6 +418,24 @@ export default function AppraisalGroups() {
       if (!appliedFilters.role.includes(user.role ?? '')) return false;
     }
 
+    // DOJ From Date filter
+    if (appliedFilters.dojFromDate && user.dateOfJoining) {
+      const userDoj = new Date(user.dateOfJoining);
+      const fromDate = new Date(appliedFilters.dojFromDate);
+      fromDate.setHours(0, 0, 0, 0);
+      userDoj.setHours(0, 0, 0, 0);
+      if (userDoj < fromDate) return false;
+    }
+
+    // DOJ Till Date filter
+    if (appliedFilters.dojTillDate && user.dateOfJoining) {
+      const userDoj = new Date(user.dateOfJoining);
+      const tillDate = new Date(appliedFilters.dojTillDate);
+      tillDate.setHours(23, 59, 59, 999);
+      userDoj.setHours(0, 0, 0, 0);
+      if (userDoj > tillDate) return false;
+    }
+
     return true;
   });
 
