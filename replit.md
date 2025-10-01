@@ -52,7 +52,7 @@ For testing HR Manager functionality:
 ### Key Features
 - **Email Integration**: Configurable SMTP, automated notifications (invitations, reminders, completion), calendar invite generation.
 - **File Management System**: Google Cloud Storage integration, PDF/DOCX generation for evaluations, company asset management.
-- **Progress Tracking**: Accurate, real-time tracking of evaluation progress with filtering (Group, Employee, Location, Department, Level, Grade, Manager) and different view modes (Card, Table). Includes functional "Send Reminder" capabilities.
+- **Progress Tracking**: Accurate, real-time tracking of evaluation progress with filtering (Group, Employee, Location, Department, Level, Grade, Manager) and different view modes (Card, Table). Includes functional "Send Reminder" capabilities. Excel export includes Member Rating and Final Manager Rating columns with proper handling of 0 ratings.
 - **Appraisal Initiation**: Supports "Publish Now" for immediate evaluation creation and email notifications, and "Publish As Per Calendar" for scheduled initiation based on frequency calendar periods.
 - **Multi-Select Period Selection**: HR Managers can selectively choose specific calendar periods for appraisal initiation, preserving per-period timing configurations.
 
