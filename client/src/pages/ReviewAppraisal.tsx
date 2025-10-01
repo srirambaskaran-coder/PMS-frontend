@@ -21,12 +21,13 @@ import {
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Calendar, Filter, Mail, ChevronDown, ChevronRight, Users, LayoutGrid, LayoutList } from "lucide-react";
+import { Calendar, Filter, Mail, ChevronDown, ChevronRight, Users, LayoutGrid, LayoutList, Download } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format } from "date-fns";
+import * as XLSX from "xlsx";
 
 export default function ReviewAppraisal() {
   const { toast } = useToast();
@@ -119,6 +120,59 @@ export default function ReviewAppraisal() {
 
   const sendReminder = (employeeId: string, initiatedAppraisalId: string) => {
     sendReminderMutation.mutate({ employeeId, initiatedAppraisalId });
+  };
+
+  // Export to Excel function
+  const exportToExcel = () => {
+    try {
+      // Prepare data for Excel export
+      const excelData = filteredRows.map((row: any) => ({
+        "Employee Name": row.employeeName,
+        "Department": row.departmentName,
+        "Manager": row.managerName,
+        "Appraisal Group": row.appraisalGroupName,
+        "Appraisal Type": row.appraisalType.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()),
+        "Frequency Calendar": row.frequencyCalendarName,
+        "Status": row.status.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()),
+        "Due Date": row.dueDate ? format(new Date(row.dueDate), 'MMM dd, yyyy') : 'N/A',
+      }));
+
+      // Create workbook and worksheet
+      const worksheet = XLSX.utils.json_to_sheet(excelData);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Appraisal Progress");
+
+      // Set column widths for better readability
+      const columnWidths = [
+        { wch: 25 }, // Employee Name
+        { wch: 20 }, // Department
+        { wch: 25 }, // Manager
+        { wch: 25 }, // Appraisal Group
+        { wch: 20 }, // Appraisal Type
+        { wch: 25 }, // Frequency Calendar
+        { wch: 15 }, // Status
+        { wch: 15 }, // Due Date
+      ];
+      worksheet['!cols'] = columnWidths;
+
+      // Generate filename with timestamp
+      const timestamp = format(new Date(), 'yyyy-MM-dd_HHmmss');
+      const filename = `Appraisal_Progress_${timestamp}.xlsx`;
+
+      // Download the file
+      XLSX.writeFile(workbook, filename);
+
+      toast({
+        title: "Export Successful",
+        description: `Downloaded ${filteredRows.length} employee records to ${filename}`,
+      });
+    } catch (error) {
+      toast({
+        title: "Export Failed",
+        description: "An error occurred while exporting to Excel",
+        variant: "destructive",
+      });
+    }
   };
 
   // Create frequency calendar lookup map
@@ -275,18 +329,29 @@ export default function ReviewAppraisal() {
     <div className="container mx-auto py-6 space-y-6" data-testid="review-appraisal-page">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold" data-testid="page-title">Review Appraisal Progress</h1>
-        <Tabs value={viewMode} onValueChange={(value) => setViewMode(value as "card" | "table")} data-testid="view-mode-tabs">
-          <TabsList>
-            <TabsTrigger value="card" data-testid="tab-card">
-              <LayoutGrid className="h-4 w-4 mr-2" />
-              Card View
-            </TabsTrigger>
-            <TabsTrigger value="table" data-testid="tab-table">
-              <LayoutList className="h-4 w-4 mr-2" />
-              Table View
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
+        <div className="flex items-center gap-3">
+          <Button 
+            onClick={exportToExcel}
+            variant="outline"
+            disabled={!filteredRows || filteredRows.length === 0}
+            data-testid="button-export-excel"
+          >
+            <Download className="h-4 w-4 mr-2" />
+            Export to Excel
+          </Button>
+          <Tabs value={viewMode} onValueChange={(value) => setViewMode(value as "card" | "table")} data-testid="view-mode-tabs">
+            <TabsList>
+              <TabsTrigger value="card" data-testid="tab-card">
+                <LayoutGrid className="h-4 w-4 mr-2" />
+                Card View
+              </TabsTrigger>
+              <TabsTrigger value="table" data-testid="tab-table">
+                <LayoutList className="h-4 w-4 mr-2" />
+                Table View
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </div>
       </div>
 
       {/* Filters Section */}
