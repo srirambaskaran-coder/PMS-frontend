@@ -232,30 +232,36 @@ export default function Evaluations() {
   };
 
   // Export functionality - now using server-side data for security
-  const handleExport = async (format: 'pdf' | 'docx') => {
-    if (!selectedEvaluation) return;
+  const handleExport = async (evaluation: EvaluationWithDetails, format: 'pdf' | 'docx') => {
+    if (!evaluation) return;
     
     setIsExporting(true);
     try {
       const exportData = {
-        evaluationId: selectedEvaluation.id,
+        evaluationId: evaluation.id,
         format
       };
       
       const response = await fetch('/api/evaluations/export', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify(exportData)
       });
       
-      if (!response.ok) throw new Error('Export failed');
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error('Unauthorized');
+        }
+        throw new Error('Export failed');
+      }
       
       // Download the file
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `evaluation-${selectedEvaluation.id}.${format}`;
+      link.download = `evaluation-${evaluation.id}.${format}`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -265,12 +271,20 @@ export default function Evaluations() {
         title: "Export Successful",
         description: `Evaluation exported as ${format.toUpperCase()}`
       });
-    } catch (error) {
-      toast({
-        title: "Export Failed",
-        description: "Unable to export evaluation. Please try again.",
-        variant: "destructive"
-      });
+    } catch (error: any) {
+      if (error.message === 'Unauthorized') {
+        toast({
+          title: "Unauthorized",
+          description: "Please log in to export evaluations.",
+          variant: "destructive"
+        });
+      } else {
+        toast({
+          title: "Export Failed",
+          description: "Unable to export evaluation. Please try again.",
+          variant: "destructive"
+        });
+      }
     } finally {
       setIsExporting(false);
     }
@@ -620,6 +634,7 @@ export default function Evaluations() {
                             <Button
                               variant="outline"
                               size="sm"
+                              disabled={isExporting}
                               data-testid={`export-evaluation-${evaluation.id}`}
                             >
                               <Download className="h-4 w-4" />
@@ -627,19 +642,15 @@ export default function Evaluations() {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent>
                             <DropdownMenuItem
-                              onClick={async () => {
-                                setSelectedEvaluation(evaluation);
-                                await handleExport('pdf');
-                              }}
+                              onClick={() => handleExport(evaluation, 'pdf')}
+                              disabled={isExporting}
                               data-testid={`export-pdf-card-${evaluation.id}`}
                             >
                               Export as PDF
                             </DropdownMenuItem>
                             <DropdownMenuItem
-                              onClick={async () => {
-                                setSelectedEvaluation(evaluation);
-                                await handleExport('docx');
-                              }}
+                              onClick={() => handleExport(evaluation, 'docx')}
+                              disabled={isExporting}
                               data-testid={`export-docx-card-${evaluation.id}`}
                             >
                               Export as DOCX
@@ -760,21 +771,23 @@ export default function Evaluations() {
                     <div className="flex gap-3 pt-4 border-t">
                       <Button
                         type="button"
-                        onClick={() => handleExport('pdf')}
+                        onClick={() => handleExport(selectedEvaluation, 'pdf')}
                         variant="outline"
+                        disabled={isExporting}
                         data-testid="export-pdf-btn"
                       >
                         <Download className="h-4 w-4 mr-2" />
-                        Export PDF
+                        {isExporting ? 'Exporting...' : 'Export PDF'}
                       </Button>
                       <Button
                         type="button"
-                        onClick={() => handleExport('docx')}
+                        onClick={() => handleExport(selectedEvaluation, 'docx')}
                         variant="outline"
+                        disabled={isExporting}
                         data-testid="export-docx-btn"
                       >
                         <Download className="h-4 w-4 mr-2" />
-                        Export DOCX
+                        {isExporting ? 'Exporting...' : 'Export DOCX'}
                       </Button>
                       <Button
                         type="button"
