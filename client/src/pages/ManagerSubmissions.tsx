@@ -77,6 +77,7 @@ interface EmployeeResponse {
 
 interface ManagerReviewData {
   managerEvaluationData: Record<string, any>;
+  finalRating: number;
 }
 
 interface MeetingSchedule {
@@ -96,7 +97,8 @@ export default function ManagerSubmissions() {
   const [isMeetingDialogOpen, setIsMeetingDialogOpen] = useState(false);
   const [isNotesDialogOpen, setIsNotesDialogOpen] = useState(false);
   const [reviewData, setReviewData] = useState<ManagerReviewData>({ 
-    managerEvaluationData: { questionRemarks: {} }
+    managerEvaluationData: { questionRemarks: {} },
+    finalRating: 5
   });
   const [meetingData, setMeetingData] = useState<MeetingSchedule>({
     meetingDate: addDays(new Date(), 7),
@@ -348,6 +350,28 @@ export default function ManagerSubmissions() {
             </div>
           );
         })}
+
+        {/* Final Rating */}
+        <div className="border-t pt-6">
+          <div>
+            <Label htmlFor="final-rating">Final Rating (1-5)</Label>
+            <Select
+              value={String(reviewData.finalRating)}
+              onValueChange={(value) => setReviewData(prev => ({ ...prev, finalRating: parseInt(value) }))}
+            >
+              <SelectTrigger id="final-rating" data-testid="final-rating-select">
+                <SelectValue placeholder="Select rating" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="1">1 - Below Expectations</SelectItem>
+                <SelectItem value="2">2 - Partially Meets Expectations</SelectItem>
+                <SelectItem value="3">3 - Meets Expectations</SelectItem>
+                <SelectItem value="4">4 - Exceeds Expectations</SelectItem>
+                <SelectItem value="5">5 - Outstanding</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
       </div>
     );
   };
@@ -519,7 +543,8 @@ export default function ManagerSubmissions() {
                               onClick={() => {
                                 setSelectedEvaluation(evaluation);
                                 setReviewData({ 
-                                  managerEvaluationData: { questionRemarks: {} }
+                                  managerEvaluationData: { questionRemarks: {} },
+                                  finalRating: 5
                                 });
                                 setIsReviewDialogOpen(true);
                               }}
