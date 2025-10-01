@@ -229,7 +229,7 @@ export default function ReviewAppraisal() {
   // Create frequency calendar lookup map
   const frequencyCalendarMap = useMemo(() => {
     if (!frequencyCalendars) return new Map();
-    return new Map((frequencyCalendars as any[]).map(cal => [cal.id, cal.name]));
+    return new Map((frequencyCalendars as any[]).map(cal => [cal.id, `${cal.code} - ${cal.description}`]));
   }, [frequencyCalendars]);
 
   // Create location lookup map
@@ -479,11 +479,14 @@ export default function ReviewAppraisal() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Cycles</SelectItem>
-                  {(appraisals || [])?.map((appraisal: any) => (
-                    <SelectItem key={appraisal.id} value={appraisal.id} data-testid={`cycle-option-${appraisal.id}`}>
-                      {appraisal.appraisalGroup?.name} - {appraisal.appraisalType.replace(/_/g, ' ')}
-                    </SelectItem>
-                  ))}
+                  {(appraisals || [])?.map((appraisal: any) => {
+                    const appraisalLabel = `${appraisal.appraisalGroup?.name || 'Unknown Group'} - ${appraisal.appraisalType.replace(/_/g, ' ')} (${appraisal.createdAt ? format(new Date(appraisal.createdAt), 'MMM dd, yyyy') : 'Unknown Date'})`;
+                    return (
+                      <SelectItem key={appraisal.id} value={appraisal.id} data-testid={`cycle-option-${appraisal.id}`}>
+                        {appraisalLabel}
+                      </SelectItem>
+                    );
+                  })}
                 </SelectContent>
               </Select>
             </div>
@@ -501,7 +504,7 @@ export default function ReviewAppraisal() {
                   <SelectItem value="all">All Calendars</SelectItem>
                   {(frequencyCalendars || [])?.map((calendar: any) => (
                     <SelectItem key={calendar.id} value={calendar.id} data-testid={`calendar-option-${calendar.id}`}>
-                      {calendar.name}
+                      {calendar.code} - {calendar.description}
                     </SelectItem>
                   ))}
                 </SelectContent>
