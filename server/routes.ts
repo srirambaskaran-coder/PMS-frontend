@@ -2210,7 +2210,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Settings routes - Change password and Email Service configuration
-  app.post('/api/settings/change-password', isAuthenticated, requireRoles(['super_admin', 'admin']), async (req: any, res) => {
+  app.post('/api/settings/change-password', isAuthenticated, requireRoles(['super_admin', 'admin', 'hr_manager', 'employee', 'manager']), async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const { currentPassword, newPassword } = req.body;

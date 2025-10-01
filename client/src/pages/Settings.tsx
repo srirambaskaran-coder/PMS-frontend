@@ -48,7 +48,10 @@ export default function Settings() {
 
   const isSuperAdmin = user?.role === 'super_admin';
   const isAdmin = user?.role === 'admin';
-  const canChangePassword = isSuperAdmin || isAdmin;
+  const isHRManager = user?.role === 'hr_manager';
+  const isEmployee = user?.role === 'employee';
+  const isManager = user?.role === 'manager';
+  const canChangePassword = isSuperAdmin || isAdmin || isHRManager || isEmployee || isManager;
   const canConfigureEmail = isAdmin; // Only Administrators can configure email
 
   // Password change form
@@ -186,7 +189,10 @@ export default function Settings() {
                   <Badge variant={isSuperAdmin ? "default" : "secondary"} className="flex items-center gap-1 w-fit">
                     <Shield className="h-3 w-3" />
                     {user?.role === 'super_admin' ? 'Super Administrator' : 
-                     user?.role === 'admin' ? 'Administrator' : user?.role}
+                     user?.role === 'admin' ? 'Administrator' : 
+                     user?.role === 'hr_manager' ? 'HR Manager' :
+                     user?.role === 'manager' ? 'Manager' :
+                     user?.role === 'employee' ? 'Employee' : user?.role}
                   </Badge>
                 </div>
               </div>
