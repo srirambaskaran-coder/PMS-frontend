@@ -193,6 +193,7 @@ export interface IStorage {
   
   // Appraisal Cycle operations - Administrator isolated
   getAppraisalCycles(createdById: string): Promise<AppraisalCycle[]>;
+  getAllAppraisalCycles(): Promise<AppraisalCycle[]>; // For HR managers to see all cycles
   getAppraisalCycle(id: string, createdById: string): Promise<AppraisalCycle | undefined>;
   createAppraisalCycle(cycle: InsertAppraisalCycle, createdById: string): Promise<AppraisalCycle>;
   updateAppraisalCycle(id: string, cycle: Partial<InsertAppraisalCycle>, createdById: string): Promise<AppraisalCycle>;
@@ -1387,6 +1388,13 @@ export class DatabaseStorage implements IStorage {
         eq(appraisalCycles.createdById, createdById),
         eq(appraisalCycles.status, 'active')
       )
+    ).orderBy(asc(appraisalCycles.code));
+  }
+
+  // Get all appraisal cycles for HR managers
+  async getAllAppraisalCycles(): Promise<AppraisalCycle[]> {
+    return await db.select().from(appraisalCycles).where(
+      eq(appraisalCycles.status, 'active')
     ).orderBy(asc(appraisalCycles.code));
   }
 

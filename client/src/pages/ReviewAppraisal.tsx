@@ -59,6 +59,10 @@ export default function ReviewAppraisal() {
     queryKey: ["/api/appraisal-groups"],
   });
 
+  const { data: appraisalCycles } = useQuery({
+    queryKey: ["/api/appraisal-cycles"],
+  });
+
   const { data: locations } = useQuery({
     queryKey: ["/api/locations"],
   });
@@ -226,10 +230,16 @@ export default function ReviewAppraisal() {
     }
   };
 
-  // Create frequency calendar lookup map
+  // Create frequency calendar lookup map (for display names)
   const frequencyCalendarMap = useMemo(() => {
     if (!frequencyCalendars) return new Map();
     return new Map((frequencyCalendars as any[]).map(cal => [cal.id, `${cal.code} - ${cal.description}`]));
+  }, [frequencyCalendars]);
+
+  // Create frequency calendar to appraisal cycle lookup map (for filtering)
+  const frequencyCalendarToCycleMap = useMemo(() => {
+    if (!frequencyCalendars) return new Map();
+    return new Map((frequencyCalendars as any[]).map(cal => [cal.id, cal.appraisalCycleId]));
   }, [frequencyCalendars]);
 
   // Create location lookup map
@@ -259,6 +269,11 @@ export default function ReviewAppraisal() {
         const finalManagerRating = empProgress.evaluation?.overallRating ?? 
                                    empProgress.evaluation?.managerEvaluationData?.averageRating ?? null;
 
+        // Get appraisal cycle ID from frequency calendar
+        const appraisalCycleId = appraisal.frequencyCalendarId 
+          ? frequencyCalendarToCycleMap.get(appraisal.frequencyCalendarId) || null
+          : null;
+
         rows.push({
           employeeId: empProgress.employee.id,
           initiatedAppraisalId: appraisal.id,
@@ -281,6 +296,7 @@ export default function ReviewAppraisal() {
           appraisalGroupId: appraisal.appraisalGroupId,
           appraisalGroupName: appraisal.appraisalGroup?.name || 'Unknown Group',
           appraisalType: appraisal.appraisalType,
+          appraisalCycleId: appraisalCycleId,
           frequencyCalendarId: appraisal.frequencyCalendarId,
           frequencyCalendarName: appraisal.frequencyCalendarId 
             ? frequencyCalendarMap.get(appraisal.frequencyCalendarId) || 'N/A'
@@ -295,7 +311,7 @@ export default function ReviewAppraisal() {
     });
     
     return rows;
-  }, [appraisals, frequencyCalendarMap, locationMap]);
+  }, [appraisals, frequencyCalendarMap, frequencyCalendarToCycleMap, locationMap]);
 
   // Apply filters to flattened rows
   const filteredRows = useMemo(() => {
@@ -305,8 +321,8 @@ export default function ReviewAppraisal() {
         return false;
       }
 
-      // Appraisal cycle filter (initiated appraisal)
-      if (filters.appraisalCycle !== "all" && row.initiatedAppraisalId !== filters.appraisalCycle) {
+      // Appraisal cycle filter
+      if (filters.appraisalCycle !== "all" && row.appraisalCycleId !== filters.appraisalCycle) {
         return false;
       }
 
@@ -479,14 +495,11 @@ export default function ReviewAppraisal() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Cycles</SelectItem>
-                  {(appraisals || [])?.map((appraisal: any) => {
-                    const appraisalLabel = `${appraisal.appraisalGroup?.name || 'Unknown Group'} - ${appraisal.appraisalType.replace(/_/g, ' ')} (${appraisal.createdAt ? format(new Date(appraisal.createdAt), 'MMM dd, yyyy') : 'Unknown Date'})`;
-                    return (
-                      <SelectItem key={appraisal.id} value={appraisal.id} data-testid={`cycle-option-${appraisal.id}`}>
-                        {appraisalLabel}
-                      </SelectItem>
-                    );
-                  })}
+                  {(appraisalCycles || [])?.map((cycle: any) => (
+                    <SelectItem key={cycle.id} value={cycle.id} data-testid={`cycle-option-${cycle.id}`}>
+                      {cycle.code} - {cycle.description}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>

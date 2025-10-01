@@ -2594,10 +2594,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Appraisal Cycle management routes - Administrator isolated
-  app.get('/api/appraisal-cycles', isAuthenticated, requireRoles(['admin']), async (req: any, res) => {
+  app.get('/api/appraisal-cycles', isAuthenticated, requireRoles(['admin', 'hr_manager']), async (req: any, res) => {
     try {
-      const createdById = req.user.claims.sub;
-      const cycles = await storage.getAppraisalCycles(createdById);
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      // HR managers can see all active appraisal cycles, admins see only theirs
+      const activeRole = req.user.activeRole || user.role;
+      let cycles;
+      if (activeRole === 'hr_manager') {
+        cycles = await storage.getAllAppraisalCycles();
+      } else {
+        cycles = await storage.getAppraisalCycles(userId);
+      }
+      
       res.json(cycles);
     } catch (error) {
       console.error("Error fetching appraisal cycles:", error);
