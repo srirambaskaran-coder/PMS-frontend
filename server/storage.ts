@@ -141,6 +141,7 @@ export interface IStorage {
   deleteEvaluation(id: string): Promise<void>;
   getEvaluationByEmployeeAndCycle(employeeId: string, reviewCycleId: string): Promise<Evaluation | undefined>;
   getEvaluationsByInitiatedAppraisal(initiatedAppraisalId: string): Promise<Evaluation[]>;
+  getScheduledMeetingsForCompany(companyId: string): Promise<any[]>;
   
   // Email operations
   getEmailTemplates(): Promise<EmailTemplate[]>;
@@ -931,6 +932,44 @@ export class DatabaseStorage implements IStorage {
       .where(eq(evaluations.initiatedAppraisalId, initiatedAppraisalId))
       .orderBy(desc(evaluations.createdAt));
     return results;
+  }
+
+  async getScheduledMeetingsForCompany(companyId: string): Promise<any[]> {
+    const results = await db
+      .select({
+        evaluation: evaluations,
+        employee: users,
+        manager: {
+          id: sql`manager.id`,
+          firstName: sql`manager.first_name`,
+          lastName: sql`manager.last_name`,
+          email: sql`manager.email`,
+          department: sql`manager.department`,
+        },
+      })
+      .from(evaluations)
+      .leftJoin(users, eq(evaluations.employeeId, users.id))
+      .leftJoin(sql`users as manager`, sql`${evaluations.managerId} = manager.id`)
+      .where(
+        and(
+          eq(users.companyId, companyId),
+          isNotNull(evaluations.meetingScheduledAt)
+        )
+      )
+      .orderBy(desc(evaluations.meetingScheduledAt));
+    
+    return results.map(result => ({
+      ...result.evaluation,
+      employee: result.employee ? {
+        id: result.employee.id,
+        firstName: result.employee.firstName,
+        lastName: result.employee.lastName,
+        email: result.employee.email,
+        department: result.employee.department,
+        designation: result.employee.designation,
+      } : null,
+      manager: result.manager,
+    }));
   }
 
   // Email operations
