@@ -4186,13 +4186,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Send completion notifications
       const { sendEvaluationCompletionNotification } = await import('./emailService');
       
+      // Prepare employee data for email
+      const employeeData = {
+        name: `${employee.firstName} ${employee.lastName}`,
+        code: employee.code,
+        email: employee.email
+      };
+      
+      const managerFullName = `${manager.firstName} ${manager.lastName}`;
+      
       // Notify employee (primary recipient)
       await sendEvaluationCompletionNotification(
         employee.email,
         `${employee.firstName} ${employee.lastName}`,
-        `${manager.firstName} ${manager.lastName}`,
+        managerFullName,
         updatedEvaluation,
-        'employee'
+        'employee',
+        employeeData,
+        managerFullName
       );
 
       // Notify manager (secondary recipient) 
@@ -4201,7 +4212,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         `${manager.firstName} ${manager.lastName}`,
         `${employee.firstName} ${employee.lastName}`,
         updatedEvaluation,
-        'manager'
+        'manager',
+        employeeData,
+        managerFullName
       );
 
       // Notify HR Manager(s) (CC recipients)
@@ -4212,7 +4225,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
             `${hrManager.firstName} ${hrManager.lastName}`,
             `${employee.firstName} ${employee.lastName}`,
             updatedEvaluation,
-            'hr_manager'
+            'hr_manager',
+            employeeData,
+            managerFullName
           );
         }
       }

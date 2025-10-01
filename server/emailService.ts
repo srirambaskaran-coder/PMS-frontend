@@ -586,10 +586,17 @@ export async function sendEvaluationCompletionNotification(
   recipientName: string,
   otherPartyName: string,
   evaluation: any,
-  recipientRole: 'employee' | 'manager' | 'hr_manager'
+  recipientRole: 'employee' | 'manager' | 'hr_manager',
+  employeeData?: { name: string; code?: string; email?: string },
+  managerName?: string
 ): Promise<void> {
   let subject: string;
   let html: string;
+  
+  // Determine if meeting notes should be shown based on role and visibility setting
+  const shouldShowMeetingNotes = evaluation.meetingNotes && (
+    recipientRole !== 'employee' || evaluation.showNotesToEmployee === true
+  );
   
   if (recipientRole === 'employee') {
     subject = 'Performance Review Completed - Results Available';
@@ -597,21 +604,18 @@ export async function sendEvaluationCompletionNotification(
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <h2 style="color: #059669;">Your Performance Review is Complete!</h2>
         <p>Dear ${recipientName},</p>
-        <p>Your performance review has been completed by your manager, ${otherPartyName}.</p>
+        <p>Your performance review has been completed by your manager, ${managerName || otherPartyName}.</p>
         
         <div style="background-color: #f0fdf4; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #059669;">
           <h3 style="color: #065f46; margin-top: 0;">Review Summary</h3>
+          ${employeeData?.code ? `<p><strong>Employee Code:</strong> ${employeeData.code}</p>` : ''}
+          <p><strong>Employee Name:</strong> ${employeeData?.name || recipientName}</p>
+          ${employeeData?.email ? `<p><strong>Employee Email ID:</strong> ${employeeData.email}</p>` : ''}
           ${evaluation.overallRating ? `<p><strong>Final Rating:</strong> ${evaluation.overallRating}/5</p>` : ''}
-          <p><strong>Review Completed On:</strong> ${evaluation.finalizedAt ? new Date(evaluation.finalizedAt).toLocaleDateString() : 'N/A'}</p>
-          <p><strong>Manager:</strong> ${otherPartyName}</p>
+          <p><strong>Meeting Completed On:</strong> ${evaluation.finalizedAt ? new Date(evaluation.finalizedAt).toLocaleDateString() : 'N/A'}</p>
+          ${shouldShowMeetingNotes ? `<p><strong>Meeting Notes:</strong></p><p style="white-space: pre-wrap; margin-top: 5px;">${evaluation.meetingNotes}</p>` : ''}
+          <p><strong>Manager:</strong> ${managerName || otherPartyName}</p>
         </div>
-        
-        ${evaluation.meetingNotes ? `
-        <div style="background-color: #fefce8; padding: 20px; border-radius: 8px; margin: 20px 0;">
-          <h3 style="color: #92400e; margin-top: 0;">Meeting Notes</h3>
-          <p style="white-space: pre-wrap;">${evaluation.meetingNotes}</p>
-        </div>
-        ` : ''}
         
         <p>You can view the complete review details in your performance management dashboard.</p>
         <p>If you have any questions about your review, please discuss them with your manager during your next one-on-one meeting.</p>
@@ -620,16 +624,16 @@ export async function sendEvaluationCompletionNotification(
       </div>
     `;
   } else if (recipientRole === 'manager') {
-    subject = `Performance Review Completed - ${otherPartyName}`;
+    subject = `Performance Review Completed - ${employeeData?.name || otherPartyName}`;
     html = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <h2 style="color: #2563eb;">Performance Review Completion Confirmation</h2>
         <p>Dear ${recipientName},</p>
-        <p>This confirms that you have successfully completed the performance review for ${otherPartyName}.</p>
+        <p>This confirms that you have successfully completed the performance review for ${employeeData?.name || otherPartyName}.</p>
         
         <div style="background-color: #eff6ff; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #2563eb;">
           <h3 style="color: #1e40af; margin-top: 0;">Completion Summary</h3>
-          <p><strong>Employee:</strong> ${otherPartyName}</p>
+          <p><strong>Employee Name:</strong> ${employeeData?.name || otherPartyName}</p>
           ${evaluation.overallRating ? `<p><strong>Final Rating Given:</strong> ${evaluation.overallRating}/5</p>` : ''}
           <p><strong>Completed On:</strong> ${evaluation.finalizedAt ? new Date(evaluation.finalizedAt).toLocaleDateString() : 'N/A'}</p>
         </div>
@@ -643,7 +647,7 @@ export async function sendEvaluationCompletionNotification(
       </div>
     `;
   } else { // hr_manager
-    subject = `Performance Review Completed - ${otherPartyName}`;
+    subject = `Performance Review Completed - ${employeeData?.name || otherPartyName}`;
     html = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <h2 style="color: #7c3aed;">Performance Review Completion Notice</h2>
@@ -652,7 +656,7 @@ export async function sendEvaluationCompletionNotification(
         
         <div style="background-color: #faf5ff; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #7c3aed;">
           <h3 style="color: #5b21b6; margin-top: 0;">Review Details</h3>
-          <p><strong>Employee:</strong> ${otherPartyName}</p>
+          <p><strong>Employee Name:</strong> ${employeeData?.name || otherPartyName}</p>
           ${evaluation.overallRating ? `<p><strong>Final Rating:</strong> ${evaluation.overallRating}/5</p>` : ''}
           <p><strong>Completed On:</strong> ${evaluation.finalizedAt ? new Date(evaluation.finalizedAt).toLocaleDateString() : 'N/A'}</p>
           <p><strong>Status:</strong> Completed</p>
