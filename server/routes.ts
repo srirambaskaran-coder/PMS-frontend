@@ -3703,18 +3703,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       dueDate.setDate(dueDate.getDate() + 7);
       const formattedDueDate = dueDate.toLocaleDateString();
 
-      // Send reminder email
+      // Extract manager email from evaluation data
+      const managerEmail = employeeProgress.evaluation?.manager?.email;
+
+      // Send reminder email with manager CC
       await sendReviewReminder(
         employee.email,
         `${employee.firstName} ${employee.lastName}`,
-        formattedDueDate
+        formattedDueDate,
+        managerEmail
       );
 
       res.json({ 
         message: "Reminder sent successfully",
         employeeName: `${employee.firstName} ${employee.lastName}`,
         employeeEmail: employee.email,
-        dueDate: formattedDueDate
+        dueDate: formattedDueDate,
+        managerCc: managerEmail || null
       });
     } catch (error) {
       console.error("Error sending reminder:", error);
