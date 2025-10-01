@@ -58,6 +58,12 @@ export function Header() {
   const availableRoles = (user as any)?.availableRoles || [];
   const hasMultipleRoles = availableRoles.length > 1;
 
+  // Helper function to format role names properly
+  const formatRoleName = (role: string) => {
+    if (role === 'hr_manager') return 'HR Manager';
+    return role.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+  };
+
   return (
     <header className="bg-card border-b border-border px-6 py-4" data-testid="header">
       <div className="flex items-center justify-between">
@@ -116,8 +122,8 @@ export function Header() {
                   <p className="text-xs leading-none text-muted-foreground" data-testid="user-email-display">
                     {(user as any)?.email || 'Loading...'}
                   </p>
-                  <p className="text-xs leading-none text-muted-foreground capitalize" data-testid="user-role-display">
-                    {activeRole?.replace('_', ' ') || 'Loading...'}
+                  <p className="text-xs leading-none text-muted-foreground" data-testid="user-role-display">
+                    {activeRole ? formatRoleName(activeRole) : 'Loading...'}
                     {hasMultipleRoles && (
                       <span className="ml-1 text-primary">•</span>
                     )}
@@ -137,12 +143,11 @@ export function Header() {
                       key={role}
                       onClick={() => handleSwitchRole(role)}
                       disabled={role === activeRole || switchRoleMutation.isPending}
-                      className="capitalize"
                       data-testid={`switch-role-${role}`}
                     >
                       <RefreshCw className={`mr-2 h-4 w-4 ${switchRoleMutation.isPending ? 'animate-spin' : ''}`} />
                       <span className={role === activeRole ? 'font-medium' : ''}>
-                        {role.replace('_', ' ')}
+                        {formatRoleName(role)}
                         {role === activeRole && <span className="ml-2 text-primary">✓</span>}
                       </span>
                     </DropdownMenuItem>
