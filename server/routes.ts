@@ -1986,7 +1986,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Extract responses and calculate average from stored data
       const selfEvaluationData = evaluation.selfEvaluationData as any;
-      const responses = selfEvaluationData?.responses || selfEvaluationData || {};
+      // Ensure responses is always an array
+      const responses = Array.isArray(selfEvaluationData?.responses) 
+        ? selfEvaluationData.responses 
+        : Array.isArray(selfEvaluationData)
+          ? selfEvaluationData
+          : [];
       const averageRating = selfEvaluationData?.averageRating || 0;
       
       // Get questionnaires associated with this evaluation from database
