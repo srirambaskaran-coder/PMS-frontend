@@ -55,6 +55,7 @@ For testing HR Manager functionality:
 - **Progress Tracking**: Accurate, real-time tracking of evaluation progress with filtering (Group, Employee, Location, Department, Level, Grade, Manager) and different view modes (Card, Table). Includes functional "Send Reminder" capabilities. Excel export includes Member Rating and Final Manager Rating columns with proper handling of 0 ratings.
 - **Appraisal Initiation**: Supports "Publish Now" for immediate evaluation creation and email notifications, and "Publish As Per Calendar" for scheduled initiation based on frequency calendar periods.
 - **Multi-Select Period Selection**: HR Managers can selectively choose specific calendar periods for appraisal initiation, preserving per-period timing configurations.
+- **Password Management**: All user roles (HR Manager, Employee, Manager, Administrator, Super Administrator) can change their own passwords through the Settings page with secure validation and current password verification.
 
 ## External Dependencies
 
