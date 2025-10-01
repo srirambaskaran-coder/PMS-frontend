@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,16 +18,20 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Calendar, Filter, Mail, ChevronDown, ChevronRight, Users } from "lucide-react";
+import { Calendar, Filter, Mail, ChevronDown, ChevronRight, Users, LayoutGrid, LayoutList } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { Skeleton } from "@/components/ui/skeleton";
+import { format } from "date-fns";
 
 export default function ReviewAppraisal() {
   const { toast } = useToast();
+  
+  const [viewMode, setViewMode] = useState<"card" | "table">("card");
   
   const [filters, setFilters] = useState({
     appraisalGroup: "all",
@@ -71,6 +75,11 @@ export default function ReviewAppraisal() {
     queryKey: ["/api/users?role=manager"],
   });
 
+  // Fetch frequency calendars
+  const { data: frequencyCalendars } = useQuery({
+    queryKey: ["/api/frequency-calendars"],
+  });
+
   // Send reminder mutation
   const sendReminderMutation = useMutation({
     mutationFn: async ({ employeeId, initiatedAppraisalId }: { employeeId: string; initiatedAppraisalId: string }) => {
@@ -112,6 +121,142 @@ export default function ReviewAppraisal() {
     sendReminderMutation.mutate({ employeeId, initiatedAppraisalId });
   };
 
+  // Create frequency calendar lookup map
+  const frequencyCalendarMap = useMemo(() => {
+    if (!frequencyCalendars) return new Map();
+    return new Map((frequencyCalendars as any[]).map(cal => [cal.id, cal.name]));
+  }, [frequencyCalendars]);
+
+  // Flatten appraisals data into rows for table view
+  const flattenedRows = useMemo(() => {
+    if (!appraisals) return [];
+    
+    const rows: any[] = [];
+    (appraisals as any[]).forEach((appraisal: any) => {
+      const employeeProgress = appraisal.progress?.employeeProgress || [];
+      
+      employeeProgress.forEach((empProgress: any) => {
+        // Calculate due date if available
+        let dueDate = null;
+        if (appraisal.createdAt && appraisal.daysToClose) {
+          const createdDate = new Date(appraisal.createdAt);
+          dueDate = new Date(createdDate.getTime() + appraisal.daysToClose * 24 * 60 * 60 * 1000);
+        }
+
+        rows.push({
+          employeeId: empProgress.employee.id,
+          initiatedAppraisalId: appraisal.id,
+          employeeName: `${empProgress.employee.firstName} ${empProgress.employee.lastName}`,
+          employeeFirstName: empProgress.employee.firstName,
+          employeeLastName: empProgress.employee.lastName,
+          departmentId: empProgress.employee.departmentId || null,
+          departmentName: empProgress.employee.department || 'N/A',
+          locationId: empProgress.employee.locationId,
+          levelId: empProgress.employee.levelId,
+          gradeId: empProgress.employee.gradeId,
+          managerId: empProgress.evaluation?.manager?.id || null,
+          managerName: empProgress.evaluation?.manager 
+            ? `${empProgress.evaluation.manager.firstName} ${empProgress.evaluation.manager.lastName}`
+            : 'N/A',
+          appraisalGroupId: appraisal.appraisalGroupId,
+          appraisalGroupName: appraisal.appraisalGroup?.name || 'Unknown Group',
+          appraisalType: appraisal.appraisalType,
+          frequencyCalendarId: appraisal.frequencyCalendarId,
+          frequencyCalendarName: appraisal.frequencyCalendarId 
+            ? frequencyCalendarMap.get(appraisal.frequencyCalendarId) || 'N/A'
+            : 'N/A',
+          status: empProgress.status,
+          dueDate: dueDate,
+          appraisalStatus: appraisal.status,
+        });
+      });
+    });
+    
+    return rows;
+  }, [appraisals, frequencyCalendarMap]);
+
+  // Apply filters to flattened rows
+  const filteredRows = useMemo(() => {
+    return flattenedRows.filter(row => {
+      // Appraisal group filter
+      if (filters.appraisalGroup !== "all" && row.appraisalGroupId !== filters.appraisalGroup) {
+        return false;
+      }
+
+      // Employee name filter
+      if (filters.employee && !row.employeeName.toLowerCase().includes(filters.employee.toLowerCase())) {
+        return false;
+      }
+
+      // Location filter
+      if (filters.location !== "all" && row.locationId !== filters.location) {
+        return false;
+      }
+
+      // Department filter
+      if (filters.department !== "all" && row.departmentId !== filters.department) {
+        return false;
+      }
+
+      // Level filter
+      if (filters.level !== "all" && row.levelId !== filters.level) {
+        return false;
+      }
+
+      // Grade filter
+      if (filters.grade !== "all" && row.gradeId !== filters.grade) {
+        return false;
+      }
+
+      // Manager filter
+      if (filters.manager !== "all" && row.managerId !== filters.manager) {
+        return false;
+      }
+
+      return true;
+    });
+  }, [flattenedRows, filters]);
+
+  // Filter appraisals for card view based on filtered rows
+  const filteredAppraisals = useMemo(() => {
+    if (!appraisals) return [];
+    
+    // Build a map for O(1) membership checks: appraisalId -> Set<employeeId>
+    const filteredEmployeesByAppraisal = new Map<string, Set<string>>();
+    filteredRows.forEach(row => {
+      if (!filteredEmployeesByAppraisal.has(row.initiatedAppraisalId)) {
+        filteredEmployeesByAppraisal.set(row.initiatedAppraisalId, new Set());
+      }
+      filteredEmployeesByAppraisal.get(row.initiatedAppraisalId)!.add(row.employeeId);
+    });
+    
+    return (appraisals as any[]).map((appraisal: any) => {
+      // Only include this appraisal if it has matching rows
+      const employeeSet = filteredEmployeesByAppraisal.get(appraisal.id);
+      if (!employeeSet) {
+        return null;
+      }
+
+      // Filter the employee progress to only show matching employees using O(1) lookup
+      const filteredEmployeeProgress = (appraisal.progress?.employeeProgress || []).filter((empProgress: any) => {
+        return employeeSet.has(empProgress.employee.id);
+      });
+
+      return {
+        ...appraisal,
+        progress: {
+          ...appraisal.progress,
+          employeeProgress: filteredEmployeeProgress,
+          totalEmployees: filteredEmployeeProgress.length,
+          completedEvaluations: filteredEmployeeProgress.filter((emp: any) => emp.status === 'completed').length,
+          percentage: filteredEmployeeProgress.length > 0 
+            ? Math.round((filteredEmployeeProgress.filter((emp: any) => emp.status === 'completed').length / filteredEmployeeProgress.length) * 100)
+            : 0,
+        },
+      };
+    }).filter(appraisal => appraisal !== null);
+  }, [appraisals, filteredRows]);
+
   if (isLoading) {
     return (
       <div className="container mx-auto py-6 space-y-6" data-testid="review-appraisal-page">
@@ -130,10 +275,18 @@ export default function ReviewAppraisal() {
     <div className="container mx-auto py-6 space-y-6" data-testid="review-appraisal-page">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold" data-testid="page-title">Review Appraisal Progress</h1>
-        <div className="flex items-center gap-2">
-          <Filter className="h-4 w-4" />
-          <span className="text-sm text-muted-foreground">Filter Options</span>
-        </div>
+        <Tabs value={viewMode} onValueChange={(value) => setViewMode(value as "card" | "table")} data-testid="view-mode-tabs">
+          <TabsList>
+            <TabsTrigger value="card" data-testid="tab-card">
+              <LayoutGrid className="h-4 w-4 mr-2" />
+              Card View
+            </TabsTrigger>
+            <TabsTrigger value="table" data-testid="tab-table">
+              <LayoutList className="h-4 w-4 mr-2" />
+              Table View
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
       </div>
 
       {/* Filters Section */}
@@ -315,9 +468,100 @@ export default function ReviewAppraisal() {
                 No initiated appraisals match your current filters. Try adjusting your filter criteria.
               </p>
             </div>
+          ) : viewMode === "table" ? (
+            /* Table View */
+            <div className="overflow-x-auto" data-testid="table-view">
+              {filteredRows.length === 0 ? (
+                <div className="text-center py-8" data-testid="no-filtered-results-message">
+                  <Calendar className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">No Results Found</h3>
+                  <p className="text-muted-foreground">
+                    No employees match your current filters. Try adjusting your filter criteria.
+                  </p>
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Employee Name</TableHead>
+                      <TableHead>Department</TableHead>
+                      <TableHead>Manager</TableHead>
+                      <TableHead>Appraisal Group</TableHead>
+                      <TableHead>Appraisal Type</TableHead>
+                      <TableHead>Frequency Calendar</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Due Date</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredRows.map((row: any, index: number) => (
+                      <TableRow key={`${row.employeeId}-${row.initiatedAppraisalId}`} data-testid={`table-row-${index}`}>
+                        <TableCell data-testid={`table-employee-name-${index}`}>
+                          {row.employeeName}
+                        </TableCell>
+                        <TableCell data-testid={`table-department-${index}`}>
+                          {row.departmentName}
+                        </TableCell>
+                        <TableCell data-testid={`table-manager-${index}`}>
+                          {row.managerName}
+                        </TableCell>
+                        <TableCell data-testid={`table-appraisal-group-${index}`}>
+                          {row.appraisalGroupName}
+                        </TableCell>
+                        <TableCell data-testid={`table-appraisal-type-${index}`}>
+                          {row.appraisalType.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())}
+                        </TableCell>
+                        <TableCell data-testid={`table-frequency-calendar-${index}`}>
+                          {row.frequencyCalendarName}
+                        </TableCell>
+                        <TableCell data-testid={`table-status-${index}`}>
+                          <Badge
+                            variant={
+                              row.status === 'completed' ? 'default' :
+                              row.status === 'in_progress' ? 'secondary' :
+                              row.status === 'overdue' ? 'destructive' : 'outline'
+                            }
+                          >
+                            {row.status.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())}
+                          </Badge>
+                        </TableCell>
+                        <TableCell data-testid={`table-due-date-${index}`}>
+                          {row.dueDate ? format(new Date(row.dueDate), 'MMM dd, yyyy') : 'N/A'}
+                        </TableCell>
+                        <TableCell data-testid={`table-actions-${index}`}>
+                          {row.status !== 'completed' && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => sendReminder(row.employeeId, row.initiatedAppraisalId)}
+                              data-testid={`table-button-send-reminder-${index}`}
+                              disabled={sendReminderMutation.isPending}
+                            >
+                              <Mail className="h-4 w-4 mr-1" />
+                              Send Reminder
+                            </Button>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </div>
           ) : (
-            <div className="space-y-4">
-              {(appraisals as any[] || [])?.map((appraisal: any) => (
+            /* Card View */
+            <div className="space-y-4" data-testid="card-view">
+              {filteredAppraisals.length === 0 ? (
+                <div className="text-center py-8" data-testid="no-filtered-results-message">
+                  <Calendar className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">No Results Found</h3>
+                  <p className="text-muted-foreground">
+                    No appraisals match your current filters. Try adjusting your filter criteria.
+                  </p>
+                </div>
+              ) : (
+                filteredAppraisals.map((appraisal: any) => (
                 <Card key={appraisal.id} className="border-l-4 border-l-primary" data-testid={`appraisal-card-${appraisal.id}`}>
                   <CardContent className="pt-6">
                     <div className="flex items-center justify-between mb-4">
@@ -395,7 +639,7 @@ export default function ReviewAppraisal() {
                                           employeeProgress.status === 'overdue' ? 'destructive' : 'outline'
                                         }
                                       >
-                                        {employeeProgress.status.replace('_', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())}
+                                        {employeeProgress.status.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())}
                                       </Badge>
                                     </TableCell>
                                     <TableCell data-testid={`employee-actions-${employeeProgress.employee.id}`}>
@@ -428,7 +672,8 @@ export default function ReviewAppraisal() {
                     )}
                   </CardContent>
                 </Card>
-              ))}
+                ))
+              )}
             </div>
           )}
         </CardContent>
