@@ -3912,6 +3912,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Update evaluation with manager review
       const updatedEvaluation = await storage.updateEvaluation(evaluationId, updateData);
       
+      // Send email notification to employee when manager submits evaluation
+      try {
+        const employee = await storage.getUser(evaluation.employeeId);
+        const manager = await storage.getUser(managerId);
+        
+        // Defensive checks for required email fields
+        if (employee && employee.email && manager && manager.email && employee.companyId) {
+          // Get HR managers for the company
+          const hrManagers = await storage.getUsers({ role: 'hr_manager', companyId: employee.companyId });
+          const hrManagerEmails = hrManagers
+            .filter(hrm => hrm.email)
+            .map(hrm => hrm.email as string);
+          
+          const { sendManagerSubmissionNotification } = await import('./emailService');
+          await sendManagerSubmissionNotification(
+            employee.email,
+            `${employee.firstName} ${employee.lastName}`,
+            `${manager.firstName} ${manager.lastName}`,
+            manager.email,
+            updatedEvaluation.id,
+            hrManagerEmails
+          );
+          console.log(`Manager submission notification sent to employee ${employee.email} with CC to ${hrManagerEmails.length} HR manager(s)`);
+        } else {
+          console.log('Skipping email notification: Missing required email addresses or company ID');
+        }
+      } catch (emailError) {
+        console.error('Failed to send manager submission notification:', emailError);
+        // Don't fail the request if email fails
+      }
+      
       res.json({
         message: "Manager review submitted successfully",
         evaluation: updatedEvaluation

@@ -721,3 +721,52 @@ export async function sendEmployeeSubmissionNotification(
     cc: hrManagerEmails && hrManagerEmails.length > 0 ? hrManagerEmails : undefined,
   });
 }
+
+export async function sendManagerSubmissionNotification(
+  employeeEmail: string,
+  employeeName: string,
+  managerName: string,
+  managerEmail: string,
+  evaluationId: string,
+  hrManagerEmails?: string[]
+): Promise<void> {
+  const subject = `Manager Evaluation Submitted - Your Performance Review`;
+  const domain = process.env.REPLIT_DOMAINS?.split(',')[0] || 'localhost:5000';
+  const protocol = domain.includes('localhost') ? 'http://' : 'https://';
+  const evaluationLink = `${protocol}${domain}/evaluations`;
+  
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <h2 style="color: #2563eb;">Manager Evaluation Submitted</h2>
+      <p>Dear ${employeeName},</p>
+      <p>Your manager <strong>${managerName}</strong> (${managerEmail}) has completed and submitted their evaluation of your performance.</p>
+      
+      <div style="background-color: #eff6ff; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #2563eb;">
+        <h3 style="color: #1e40af; margin-top: 0;">Next Steps</h3>
+        <p>Your manager will be scheduling a one-on-one meeting with you to discuss:</p>
+        <ul style="color: #1e293b;">
+          <li>Your self-evaluation and manager's feedback</li>
+          <li>Performance highlights and areas for growth</li>
+          <li>Career development and goals for next period</li>
+        </ul>
+      </div>
+      
+      <div style="text-align: center; margin: 30px 0;">
+        <a href="${evaluationLink}" style="background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
+          View Evaluation Status
+        </a>
+      </div>
+      
+      <p>You will receive a meeting invitation shortly. Please prepare any questions or topics you'd like to discuss during your one-on-one.</p>
+      
+      <p>Best regards,<br>Performance Management System</p>
+    </div>
+  `;
+  
+  return emailService.sendEmail({
+    to: employeeEmail,
+    subject,
+    html,
+    cc: hrManagerEmails && hrManagerEmails.length > 0 ? hrManagerEmails : undefined,
+  });
+}
