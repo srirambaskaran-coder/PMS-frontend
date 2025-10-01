@@ -217,12 +217,13 @@ export async function sendReviewInvitation(employeeEmail: string, employeeName: 
   });
 }
 
-export async function sendReviewReminder(employeeEmail: string, employeeName: string, dueDate: string): Promise<void> {
+export async function sendReviewReminder(employeeEmail: string, employeeName: string, dueDate: string, managerEmail?: string): Promise<void> {
   const { subject, html } = emailService.generateReviewReminderEmail(employeeName, dueDate);
   return emailService.sendEmail({
     to: employeeEmail,
     subject,
     html,
+    cc: managerEmail,
   });
 }
 
