@@ -116,7 +116,7 @@ export default function ReviewAppraisal() {
     return (
       <div className="container mx-auto py-6 space-y-6" data-testid="review-appraisal-page">
         <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold">Rename Appraisal Progress</h1>
+          <h1 className="text-3xl font-bold">Review Appraisal Progress</h1>
         </div>
         <div className="space-y-4">
           <Skeleton className="h-32 w-full" />
@@ -129,7 +129,7 @@ export default function ReviewAppraisal() {
   return (
     <div className="container mx-auto py-6 space-y-6" data-testid="review-appraisal-page">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold" data-testid="page-title">Rename Appraisal Progress</h1>
+        <h1 className="text-3xl font-bold" data-testid="page-title">Review Appraisal Progress</h1>
         <div className="flex items-center gap-2">
           <Filter className="h-4 w-4" />
           <span className="text-sm text-muted-foreground">Filter Options</span>
