@@ -672,3 +672,52 @@ export async function sendEvaluationCompletionNotification(
     html,
   });
 }
+
+export async function sendEmployeeSubmissionNotification(
+  managerEmail: string,
+  managerName: string,
+  employeeName: string,
+  employeeEmail: string,
+  evaluationId: string,
+  hrManagerEmails?: string[]
+): Promise<void> {
+  const subject = `Employee Self-Evaluation Submitted - ${employeeName}`;
+  const domain = process.env.REPLIT_DOMAINS?.split(',')[0] || 'localhost:5000';
+  const protocol = domain.includes('localhost') ? 'http://' : 'https://';
+  const evaluationLink = `${protocol}${domain}/review-appraisal`;
+  
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <h2 style="color: #2563eb;">Employee Self-Evaluation Submitted</h2>
+      <p>Dear ${managerName},</p>
+      <p><strong>${employeeName}</strong> (${employeeEmail}) has completed and submitted their self-evaluation.</p>
+      
+      <div style="background-color: #eff6ff; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #2563eb;">
+        <h3 style="color: #1e40af; margin-top: 0;">Action Required</h3>
+        <p>As the reporting manager, you are now required to:</p>
+        <ul style="color: #1e293b;">
+          <li>Review the employee's self-evaluation</li>
+          <li>Complete your manager evaluation</li>
+          <li>Schedule a one-on-one meeting to discuss the review</li>
+        </ul>
+      </div>
+      
+      <div style="text-align: center; margin: 30px 0;">
+        <a href="${evaluationLink}" style="background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
+          Review & Evaluate
+        </a>
+      </div>
+      
+      <p>Please complete your evaluation at your earliest convenience to keep the performance review process on track.</p>
+      
+      <p>Best regards,<br>Performance Management System</p>
+    </div>
+  `;
+  
+  return emailService.sendEmail({
+    to: managerEmail,
+    subject,
+    html,
+    cc: hrManagerEmails && hrManagerEmails.length > 0 ? hrManagerEmails : undefined,
+  });
+}

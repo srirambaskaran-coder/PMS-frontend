@@ -28,7 +28,7 @@ import {
   sendReminderRequestSchema,
   type SafeUser,
 } from "@shared/schema";
-import { sendEmail, sendReviewInvitation, sendReviewReminder, sendReviewCompletion, generateRegistrationNotificationEmail } from "./emailService";
+import { sendEmail, sendReviewInvitation, sendReviewReminder, sendReviewCompletion, generateRegistrationNotificationEmail, sendEmployeeSubmissionNotification } from "./emailService";
 import { ObjectStorageService } from "./objectStorage";
 import { seedTestUsers, testUsers } from "./seedUsers";
 import * as XLSX from 'xlsx';
@@ -1685,6 +1685,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
           Object.entries(allowedUpdates).filter(([_, value]) => value !== undefined)
         );
         const evaluation = await storage.updateEvaluation(id, filteredData);
+        
+        // Send email notification to manager when employee submits self-evaluation
+        if (evaluationData.selfEvaluationSubmittedAt && !existingEvaluation.selfEvaluationSubmittedAt) {
+          try {
+            const manager = await storage.getUser(existingEvaluation.managerId);
+            const employee = currentUser;
+            
+            // Defensive checks for required email fields
+            if (manager && manager.email && employee.email && employee.companyId) {
+              // Get HR managers for the company
+              const hrManagers = await storage.getUsers({ role: 'hr_manager', companyId: employee.companyId });
+              const hrManagerEmails = hrManagers
+                .filter(hrm => hrm.email)
+                .map(hrm => hrm.email as string);
+              
+              await sendEmployeeSubmissionNotification(
+                manager.email,
+                `${manager.firstName} ${manager.lastName}`,
+                `${employee.firstName} ${employee.lastName}`,
+                employee.email,
+                evaluation.id,
+                hrManagerEmails
+              );
+              console.log(`Employee submission notification sent to manager ${manager.email} with CC to ${hrManagerEmails.length} HR manager(s)`);
+            } else {
+              console.log('Skipping email notification: Missing required email addresses or company ID');
+            }
+          } catch (emailError) {
+            console.error('Failed to send employee submission notification:', emailError);
+            // Don't fail the request if email fails
+          }
+        }
+        
         res.json(evaluation);
       } else if (currentUser.role === 'manager') {
         // Managers can update evaluations for their direct reports and their own
@@ -1702,6 +1735,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
             Object.entries(allowedUpdates).filter(([_, value]) => value !== undefined)
           );
           const evaluation = await storage.updateEvaluation(id, filteredData);
+          
+          // Send email notification to their manager when they submit self-evaluation
+          if (evaluationData.selfEvaluationSubmittedAt && !existingEvaluation.selfEvaluationSubmittedAt) {
+            try {
+              const manager = await storage.getUser(existingEvaluation.managerId);
+              const employee = currentUser;
+              
+              // Defensive checks for required email fields
+              if (manager && manager.email && employee.email && employee.companyId) {
+                // Get HR managers for the company
+                const hrManagers = await storage.getUsers({ role: 'hr_manager', companyId: employee.companyId });
+                const hrManagerEmails = hrManagers
+                  .filter(hrm => hrm.email)
+                  .map(hrm => hrm.email as string);
+                
+                await sendEmployeeSubmissionNotification(
+                  manager.email,
+                  `${manager.firstName} ${manager.lastName}`,
+                  `${employee.firstName} ${employee.lastName}`,
+                  employee.email,
+                  evaluation.id,
+                  hrManagerEmails
+                );
+                console.log(`Employee submission notification sent to manager ${manager.email} with CC to ${hrManagerEmails.length} HR manager(s)`);
+              } else {
+                console.log('Skipping email notification: Missing required email addresses or company ID');
+              }
+            } catch (emailError) {
+              console.error('Failed to send employee submission notification:', emailError);
+              // Don't fail the request if email fails
+            }
+          }
+          
           res.json(evaluation);
         } else {
           // Managers updating their direct report's evaluation
