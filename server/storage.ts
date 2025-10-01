@@ -856,7 +856,9 @@ export class DatabaseStorage implements IStorage {
     // Fetch related data for each evaluation
     const evaluationsWithData = await Promise.all(
       evaluationResults.map(async (evaluation) => {
-        let questionnaires = [];
+        let questionnaires: any[] = [];
+        let appraisalCycle = null;
+        let frequencyCalendar = null;
         
         // Get questionnaire templates if evaluation is linked to an initiated appraisal
         if (evaluation.initiatedAppraisalId) {
@@ -866,15 +868,44 @@ export class DatabaseStorage implements IStorage {
             .where(eq(initiatedAppraisals.id, evaluation.initiatedAppraisalId))
             .limit(1);
 
-          if (initiatedAppraisal.length > 0 && initiatedAppraisal[0].questionnaireTemplateIds) {
-            const templateIds = initiatedAppraisal[0].questionnaireTemplateIds;
-            
-            if (templateIds && templateIds.length > 0) {
-              questionnaires = await db
+          if (initiatedAppraisal.length > 0) {
+            // Get questionnaire templates
+            if (initiatedAppraisal[0].questionnaireTemplateIds) {
+              const templateIds = initiatedAppraisal[0].questionnaireTemplateIds;
+              
+              if (templateIds && templateIds.length > 0) {
+                questionnaires = await db
+                  .select()
+                  .from(questionnaireTemplates)
+                  .where(inArray(questionnaireTemplates.id, templateIds))
+                  .orderBy(asc(questionnaireTemplates.name));
+              }
+            }
+
+            // Get frequency calendar and appraisal cycle
+            if (initiatedAppraisal[0].frequencyCalendarId) {
+              const [freqCal] = await db
                 .select()
-                .from(questionnaireTemplates)
-                .where(inArray(questionnaireTemplates.id, templateIds))
-                .orderBy(asc(questionnaireTemplates.name));
+                .from(frequencyCalendars)
+                .where(eq(frequencyCalendars.id, initiatedAppraisal[0].frequencyCalendarId))
+                .limit(1);
+              
+              if (freqCal) {
+                frequencyCalendar = freqCal;
+                
+                // Get appraisal cycle from frequency calendar
+                if (freqCal.appraisalCycleId) {
+                  const [cycle] = await db
+                    .select()
+                    .from(appraisalCycles)
+                    .where(eq(appraisalCycles.id, freqCal.appraisalCycleId))
+                    .limit(1);
+                  
+                  if (cycle) {
+                    appraisalCycle = cycle;
+                  }
+                }
+              }
             }
           }
         }
@@ -890,6 +921,8 @@ export class DatabaseStorage implements IStorage {
           employee,
           manager,
           questionnaires,
+          appraisalCycle,
+          frequencyCalendar,
         };
       })
     );
@@ -2215,7 +2248,6 @@ export class DatabaseStorage implements IStorage {
             designation: user.designation,
             department: user.department,
             locationId: user.locationId,
-            departmentId: user.departmentId,
             levelId: user.levelId,
             gradeId: user.gradeId,
           },
@@ -2274,7 +2306,6 @@ export class DatabaseStorage implements IStorage {
           designation: user.designation,
           department: user.department,
           locationId: user.locationId,
-          departmentId: user.departmentId,
           levelId: user.levelId,
           gradeId: user.gradeId,
         },

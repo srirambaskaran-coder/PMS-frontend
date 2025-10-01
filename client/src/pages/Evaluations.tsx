@@ -26,13 +26,15 @@ import {
   FileText,
   Play
 } from "lucide-react";
-import type { Evaluation, User as UserType, ReviewCycle } from "@shared/schema";
+import type { Evaluation, User as UserType, ReviewCycle, AppraisalCycle, FrequencyCalendar } from "@shared/schema";
 
 interface EvaluationWithDetails extends Evaluation {
   employee?: UserType;
   manager?: UserType;
   reviewCycle?: ReviewCycle;
   questionnaires?: QuestionnaireTemplate[];
+  appraisalCycle?: AppraisalCycle;
+  frequencyCalendar?: FrequencyCalendar;
 }
 
 interface QuestionnaireTemplate {
@@ -645,7 +647,14 @@ export default function Evaluations() {
         <Dialog open={isViewModalOpen} onOpenChange={setIsViewModalOpen}>
           <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Performance Evaluation</DialogTitle>
+              <DialogTitle data-testid="evaluation-dialog-title">
+                Performance Evaluation
+                {selectedEvaluation?.appraisalCycle && selectedEvaluation?.frequencyCalendar && (
+                  <span className="text-sm font-normal text-muted-foreground block mt-1">
+                    {selectedEvaluation.appraisalCycle.code} - {selectedEvaluation.appraisalCycle.description} | {selectedEvaluation.frequencyCalendar.code} - {selectedEvaluation.frequencyCalendar.description}
+                  </span>
+                )}
+              </DialogTitle>
               <DialogDescription>
                 Complete your self-evaluation by answering the questions below
               </DialogDescription>
