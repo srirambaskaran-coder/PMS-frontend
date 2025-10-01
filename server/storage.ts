@@ -2162,7 +2162,7 @@ export class DatabaseStorage implements IStorage {
     const employeeProgress = memberUsers.map(user => {
       const userEvaluations = evaluationsByEmployee.get(user.id) || [];
       const latestEvaluation = userEvaluations
-        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+        .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
 
       return {
         employee: {

@@ -383,7 +383,9 @@ export default function ReviewAppraisal() {
                                       {employeeProgress.employee.department || 'N/A'}
                                     </TableCell>
                                     <TableCell data-testid={`employee-manager-${employeeProgress.employee.id}`}>
-                                      {employeeProgress.evaluation?.managerId || 'N/A'}
+                                      {employeeProgress.evaluation?.manager 
+                                        ? `${employeeProgress.evaluation.manager.firstName} ${employeeProgress.evaluation.manager.lastName}`
+                                        : 'N/A'}
                                     </TableCell>
                                     <TableCell data-testid={`employee-status-${employeeProgress.employee.id}`}>
                                       <Badge
