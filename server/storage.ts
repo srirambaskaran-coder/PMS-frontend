@@ -2125,9 +2125,14 @@ export class DatabaseStorage implements IStorage {
     }
 
     // Get evaluations for these employees that are directly linked to this initiated appraisal
-    const memberEvaluations = await db
-      .select()
+    // Include manager information
+    const memberEvaluationsWithManagers = await db
+      .select({
+        evaluation: evaluations,
+        manager: users,
+      })
       .from(evaluations)
+      .leftJoin(users, eq(evaluations.managerId, users.id))
       .where(
         and(
           inArray(evaluations.employeeId, employeeIds),
@@ -2137,11 +2142,20 @@ export class DatabaseStorage implements IStorage {
 
     // Group evaluations by employee
     const evaluationsByEmployee = new Map();
-    memberEvaluations.forEach(evaluation => {
-      if (!evaluationsByEmployee.has(evaluation.employeeId)) {
-        evaluationsByEmployee.set(evaluation.employeeId, []);
+    memberEvaluationsWithManagers.forEach(result => {
+      if (!evaluationsByEmployee.has(result.evaluation.employeeId)) {
+        evaluationsByEmployee.set(result.evaluation.employeeId, []);
       }
-      evaluationsByEmployee.get(evaluation.employeeId).push(evaluation);
+      // Combine evaluation with manager info
+      evaluationsByEmployee.get(result.evaluation.employeeId).push({
+        ...result.evaluation,
+        manager: result.manager ? {
+          id: result.manager.id,
+          firstName: result.manager.firstName,
+          lastName: result.manager.lastName,
+          email: result.manager.email,
+        } : null,
+      });
     });
 
     // Calculate progress for each employee
