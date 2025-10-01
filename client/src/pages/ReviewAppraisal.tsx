@@ -36,6 +36,9 @@ export default function ReviewAppraisal() {
   
   const [filters, setFilters] = useState({
     appraisalGroup: "all",
+    appraisalCycle: "all",
+    frequencyCalendar: "all",
+    frequencyCalendarDetails: "all",
     employee: "",
     location: "all",
     department: "all",
@@ -170,6 +173,7 @@ export default function ReviewAppraisal() {
       // Prepare data for Excel export
       const excelData = filteredRows.map((row: any) => ({
         "Employee Name": row.employeeName,
+        "Location": row.locationName,
         "Department": row.departmentName,
         "Manager": row.managerName,
         "Appraisal Group": row.appraisalGroupName,
@@ -189,6 +193,7 @@ export default function ReviewAppraisal() {
       // Set column widths for better readability
       const columnWidths = [
         { wch: 25 }, // Employee Name
+        { wch: 20 }, // Location
         { wch: 20 }, // Department
         { wch: 25 }, // Manager
         { wch: 25 }, // Appraisal Group
@@ -227,6 +232,12 @@ export default function ReviewAppraisal() {
     return new Map((frequencyCalendars as any[]).map(cal => [cal.id, cal.name]));
   }, [frequencyCalendars]);
 
+  // Create location lookup map
+  const locationMap = useMemo(() => {
+    if (!locations) return new Map();
+    return new Map((locations as any[]).map(loc => [loc.id, loc.name]));
+  }, [locations]);
+
   // Flatten appraisals data into rows for table view
   const flattenedRows = useMemo(() => {
     if (!appraisals) return [];
@@ -258,6 +269,9 @@ export default function ReviewAppraisal() {
           departmentId: empProgress.employee.departmentId || null,
           departmentName: empProgress.employee.department || 'N/A',
           locationId: empProgress.employee.locationId,
+          locationName: empProgress.employee.locationId 
+            ? locationMap.get(empProgress.employee.locationId) || 'N/A'
+            : 'N/A',
           levelId: empProgress.employee.levelId,
           gradeId: empProgress.employee.gradeId,
           managerId: empProgress.evaluation?.manager?.id || null,
@@ -281,7 +295,7 @@ export default function ReviewAppraisal() {
     });
     
     return rows;
-  }, [appraisals, frequencyCalendarMap]);
+  }, [appraisals, frequencyCalendarMap, locationMap]);
 
   // Apply filters to flattened rows
   const filteredRows = useMemo(() => {
@@ -289,6 +303,22 @@ export default function ReviewAppraisal() {
       // Appraisal group filter
       if (filters.appraisalGroup !== "all" && row.appraisalGroupId !== filters.appraisalGroup) {
         return false;
+      }
+
+      // Appraisal cycle filter (initiated appraisal)
+      if (filters.appraisalCycle !== "all" && row.initiatedAppraisalId !== filters.appraisalCycle) {
+        return false;
+      }
+
+      // Frequency calendar filter
+      if (filters.frequencyCalendar !== "all" && row.frequencyCalendarId !== filters.frequencyCalendar) {
+        return false;
+      }
+
+      // Frequency calendar details filter (placeholder for now)
+      if (filters.frequencyCalendarDetails !== "all") {
+        // This would filter by specific calendar detail/period if that data becomes available
+        // For now, we'll keep this as a placeholder
       }
 
       // Employee name filter
@@ -439,6 +469,62 @@ export default function ReviewAppraisal() {
             </div>
 
             <div className="space-y-2">
+              <Label htmlFor="appraisal-cycle" data-testid="label-appraisal-cycle">Appraisal Cycle</Label>
+              <Select
+                value={filters.appraisalCycle}
+                onValueChange={(value) => setFilters({ ...filters, appraisalCycle: value })}
+              >
+                <SelectTrigger id="appraisal-cycle" data-testid="select-appraisal-cycle">
+                  <SelectValue placeholder="Select cycle" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Cycles</SelectItem>
+                  {(appraisals || [])?.map((appraisal: any) => (
+                    <SelectItem key={appraisal.id} value={appraisal.id} data-testid={`cycle-option-${appraisal.id}`}>
+                      {appraisal.appraisalGroup?.name} - {appraisal.appraisalType.replace(/_/g, ' ')}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="frequency-calendar" data-testid="label-frequency-calendar">Frequency Calendar</Label>
+              <Select
+                value={filters.frequencyCalendar}
+                onValueChange={(value) => setFilters({ ...filters, frequencyCalendar: value })}
+              >
+                <SelectTrigger id="frequency-calendar" data-testid="select-frequency-calendar">
+                  <SelectValue placeholder="Select calendar" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Calendars</SelectItem>
+                  {(frequencyCalendars || [])?.map((calendar: any) => (
+                    <SelectItem key={calendar.id} value={calendar.id} data-testid={`calendar-option-${calendar.id}`}>
+                      {calendar.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="frequency-calendar-details" data-testid="label-frequency-calendar-details">Frequency Calendar Details</Label>
+              <Select
+                value={filters.frequencyCalendarDetails}
+                onValueChange={(value) => setFilters({ ...filters, frequencyCalendarDetails: value })}
+              >
+                <SelectTrigger id="frequency-calendar-details" data-testid="select-frequency-calendar-details">
+                  <SelectValue placeholder="Select details" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Details</SelectItem>
+                  {/* Frequency calendar details would be populated here if available */}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
               <Label htmlFor="employee-search" data-testid="label-employee-search">Employee</Label>
               <Input
                 id="employee-search"
@@ -554,6 +640,9 @@ export default function ReviewAppraisal() {
                 variant="outline" 
                 onClick={() => setFilters({
                   appraisalGroup: "all",
+                  appraisalCycle: "all",
+                  frequencyCalendar: "all",
+                  frequencyCalendarDetails: "all",
                   employee: "",
                   location: "all",
                   department: "all",
@@ -603,6 +692,7 @@ export default function ReviewAppraisal() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Employee Name</TableHead>
+                      <TableHead>Location</TableHead>
                       <TableHead>Department</TableHead>
                       <TableHead>Manager</TableHead>
                       <TableHead>Appraisal Group</TableHead>
@@ -618,6 +708,9 @@ export default function ReviewAppraisal() {
                       <TableRow key={`${row.employeeId}-${row.initiatedAppraisalId}`} data-testid={`table-row-${index}`}>
                         <TableCell data-testid={`table-employee-name-${index}`}>
                           {row.employeeName}
+                        </TableCell>
+                        <TableCell data-testid={`table-location-${index}`}>
+                          {row.locationName}
                         </TableCell>
                         <TableCell data-testid={`table-department-${index}`}>
                           {row.departmentName}
@@ -755,6 +848,7 @@ export default function ReviewAppraisal() {
                             <TableHeader>
                               <TableRow>
                                 <TableHead>Employee</TableHead>
+                                <TableHead>Location</TableHead>
                                 <TableHead>Department</TableHead>
                                 <TableHead>Manager</TableHead>
                                 <TableHead>Status</TableHead>
@@ -767,6 +861,11 @@ export default function ReviewAppraisal() {
                                   <TableRow key={employeeProgress.employee.id} data-testid={`employee-row-${appraisal.id}-${employeeProgress.employee.id}`}>
                                     <TableCell data-testid={`employee-name-${employeeProgress.employee.id}`}>
                                       {employeeProgress.employee.firstName} {employeeProgress.employee.lastName}
+                                    </TableCell>
+                                    <TableCell data-testid={`employee-location-${employeeProgress.employee.id}`}>
+                                      {employeeProgress.employee.locationId 
+                                        ? locationMap.get(employeeProgress.employee.locationId) || 'N/A'
+                                        : 'N/A'}
                                     </TableCell>
                                     <TableCell data-testid={`employee-department-${employeeProgress.employee.id}`}>
                                       {employeeProgress.employee.department || 'N/A'}
