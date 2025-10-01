@@ -8,6 +8,13 @@ This is a comprehensive employee performance evaluation and review management sy
 
 Preferred communication style: Simple, everyday language.
 
+## Test Credentials
+
+For testing HR Manager functionality:
+- **Company**: hfactor
+- **Username**: kirankshetty@yahoo.com
+- **Password**: password123
+
 ## System Architecture
 
 ### Frontend Architecture
