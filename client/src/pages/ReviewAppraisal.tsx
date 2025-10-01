@@ -88,6 +88,11 @@ export default function ReviewAppraisal() {
     queryKey: ["/api/frequency-calendars"],
   });
 
+  // Fetch frequency calendar details
+  const { data: frequencyCalendarDetails } = useQuery({
+    queryKey: ["/api/frequency-calendar-details"],
+  });
+
   // Send reminder mutation
   const sendReminderMutation = useMutation({
     mutationFn: async ({ employeeId, initiatedAppraisalId }: { employeeId: string; initiatedAppraisalId: string }) => {
@@ -247,6 +252,17 @@ export default function ReviewAppraisal() {
     if (!locations) return new Map();
     return new Map((locations as any[]).map(loc => [loc.id, loc.name]));
   }, [locations]);
+
+  // Filter frequency calendar details based on selected frequency calendar
+  const filteredFrequencyCalendarDetails = useMemo(() => {
+    if (!frequencyCalendarDetails) return [];
+    if (filters.frequencyCalendar === "all") {
+      return frequencyCalendarDetails as any[];
+    }
+    return (frequencyCalendarDetails as any[]).filter(
+      (detail: any) => detail.frequencyCalendarId === filters.frequencyCalendar
+    );
+  }, [frequencyCalendarDetails, filters.frequencyCalendar]);
 
   // Flatten appraisals data into rows for table view
   const flattenedRows = useMemo(() => {
@@ -508,7 +524,7 @@ export default function ReviewAppraisal() {
               <Label htmlFor="frequency-calendar" data-testid="label-frequency-calendar">Frequency Calendar</Label>
               <Select
                 value={filters.frequencyCalendar}
-                onValueChange={(value) => setFilters({ ...filters, frequencyCalendar: value })}
+                onValueChange={(value) => setFilters({ ...filters, frequencyCalendar: value, frequencyCalendarDetails: "all" })}
               >
                 <SelectTrigger id="frequency-calendar" data-testid="select-frequency-calendar">
                   <SelectValue placeholder="Select calendar" />
@@ -535,7 +551,11 @@ export default function ReviewAppraisal() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Details</SelectItem>
-                  {/* Frequency calendar details would be populated here if available */}
+                  {filteredFrequencyCalendarDetails.map((detail: any) => (
+                    <SelectItem key={detail.id} value={detail.id} data-testid={`calendar-detail-option-${detail.id}`}>
+                      {detail.displayName}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
