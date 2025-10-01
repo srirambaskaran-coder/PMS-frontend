@@ -56,6 +56,7 @@ For testing HR Manager functionality:
 - **Appraisal Initiation**: Supports "Publish Now" for immediate evaluation creation and email notifications, and "Publish As Per Calendar" for scheduled initiation based on frequency calendar periods.
 - **Multi-Select Period Selection**: HR Managers can selectively choose specific calendar periods for appraisal initiation, preserving per-period timing configurations.
 - **Password Management**: All user roles (HR Manager, Employee, Manager, Administrator, Super Administrator) can change their own passwords through the Settings page with secure validation and current password verification.
+- **Meeting Scheduler**: Streamlined one-on-one meeting scheduler with single preferred date/time selection. Modal optimized for 100% zoom visibility (max-w-xl, max-h-90vh with scrolling).
 
 ## External Dependencies
 
