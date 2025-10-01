@@ -859,6 +859,7 @@ export class DatabaseStorage implements IStorage {
         let questionnaires: any[] = [];
         let appraisalCycle = null;
         let frequencyCalendar = null;
+        let frequencyCalendarDetail = null;
         
         // Get questionnaire templates if evaluation is linked to an initiated appraisal
         if (evaluation.initiatedAppraisalId) {
@@ -905,6 +906,37 @@ export class DatabaseStorage implements IStorage {
                     appraisalCycle = cycle;
                   }
                 }
+
+                // Get the associated frequency calendar detail through initiated appraisal detail timings
+                // Try to find current active period, fallback to earliest by start date
+                const detailTimings = await db
+                  .select({
+                    detail: frequencyCalendarDetails
+                  })
+                  .from(initiatedAppraisalDetailTimings)
+                  .leftJoin(
+                    frequencyCalendarDetails,
+                    eq(initiatedAppraisalDetailTimings.frequencyCalendarDetailId, frequencyCalendarDetails.id)
+                  )
+                  .where(eq(initiatedAppraisalDetailTimings.initiatedAppraisalId, initiatedAppraisal[0].id))
+                  .orderBy(asc(frequencyCalendarDetails.startDate));
+
+                // Find the current active period (where today is between startDate and endDate)
+                const now = new Date();
+                let selectedDetail = detailTimings.find(dt => 
+                  dt.detail && 
+                  new Date(dt.detail.startDate) <= now && 
+                  new Date(dt.detail.endDate) >= now
+                );
+
+                // If no current period, use the earliest one
+                if (!selectedDetail && detailTimings.length > 0) {
+                  selectedDetail = detailTimings[0];
+                }
+
+                if (selectedDetail?.detail) {
+                  frequencyCalendarDetail = selectedDetail.detail;
+                }
               }
             }
           }
@@ -923,6 +955,7 @@ export class DatabaseStorage implements IStorage {
           questionnaires,
           appraisalCycle,
           frequencyCalendar,
+          frequencyCalendarDetail,
         };
       })
     );

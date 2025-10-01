@@ -26,7 +26,7 @@ import {
   FileText,
   Play
 } from "lucide-react";
-import type { Evaluation, User as UserType, ReviewCycle, AppraisalCycle, FrequencyCalendar } from "@shared/schema";
+import type { Evaluation, User as UserType, ReviewCycle, AppraisalCycle, FrequencyCalendar, FrequencyCalendarDetail } from "@shared/schema";
 
 interface EvaluationWithDetails extends Evaluation {
   employee?: UserType;
@@ -35,6 +35,7 @@ interface EvaluationWithDetails extends Evaluation {
   questionnaires?: QuestionnaireTemplate[];
   appraisalCycle?: AppraisalCycle;
   frequencyCalendar?: FrequencyCalendar;
+  frequencyCalendarDetail?: FrequencyCalendarDetail;
 }
 
 interface QuestionnaireTemplate {
@@ -651,7 +652,13 @@ export default function Evaluations() {
                 Performance Evaluation
                 {selectedEvaluation?.appraisalCycle && selectedEvaluation?.frequencyCalendar && (
                   <span className="text-sm font-normal text-muted-foreground block mt-1">
-                    {selectedEvaluation.appraisalCycle.code} - {selectedEvaluation.appraisalCycle.description} | {selectedEvaluation.frequencyCalendar.code} - {selectedEvaluation.frequencyCalendar.description}
+                    {selectedEvaluation.appraisalCycle.code} - {selectedEvaluation.appraisalCycle.description}
+                    {selectedEvaluation.frequencyCalendarDetail && (
+                      <>
+                        {' | '}
+                        {selectedEvaluation.frequencyCalendarDetail.displayName} - {new Date(selectedEvaluation.frequencyCalendarDetail.startDate).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'UTC' }).replace(/\//g, '-')} to {new Date(selectedEvaluation.frequencyCalendarDetail.endDate).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'UTC' }).replace(/\//g, '-')}
+                      </>
+                    )}
                   </span>
                 )}
               </DialogTitle>
