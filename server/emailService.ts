@@ -1,5 +1,6 @@
-import nodemailer from 'nodemailer';
-import { storage } from './storage';
+import nodemailer from "nodemailer";
+import sql from "mssql";
+import { getPool } from "./mssql";
 
 interface EmailOptions {
   to: string;
@@ -15,26 +16,28 @@ class EmailService {
 
   async initializeTransporter() {
     try {
-      const config = await storage.getEmailConfig();
+      const pool = await getPool();
+      const result = await pool.request().execute("dbo.GetEmailConfig");
+      const config = result.recordset?.[0];
       if (!config) {
-        throw new Error('Email configuration not found');
+        throw new Error("Email configuration not found");
       }
 
       this.transporter = nodemailer.createTransport({
-        host: config.smtpHost,
-        port: config.smtpPort,
-        secure: config.smtpPort === 465,
+        host: config.SmtpHost,
+        port: config.SmtpPort,
+        secure: config.SmtpPort === 465,
         auth: {
-          user: config.smtpUsername,
-          pass: config.smtpPassword,
+          user: config.SmtpUsername,
+          pass: config.SmtpPassword,
         },
       });
 
       // Verify connection
       await this.transporter.verify();
-      console.log('Email service initialized successfully');
+      console.log("Email service initialized successfully");
     } catch (error) {
-      console.error('Failed to initialize email service:', error);
+      console.error("Failed to initialize email service:", error);
       throw error;
     }
   }
@@ -45,16 +48,18 @@ class EmailService {
     }
 
     if (!this.transporter) {
-      throw new Error('Email transporter not initialized');
+      throw new Error("Email transporter not initialized");
     }
 
-    const config = await storage.getEmailConfig();
+    const pool = await getPool();
+    const result = await pool.request().execute("dbo.GetEmailConfig");
+    const config = result.recordset?.[0];
     if (!config) {
-      throw new Error('Email configuration not found');
+      throw new Error("Email configuration not found");
     }
 
     const mailOptions = {
-      from: `"${config.fromName}" <${config.fromEmail}>`,
+      from: `"${config.FromName}" <${config.FromEmail}>`,
       to: options.to,
       subject: options.subject,
       html: options.html,
@@ -67,15 +72,20 @@ class EmailService {
       await this.transporter.sendMail(mailOptions);
       console.log(`Email sent successfully to ${options.to}`);
     } catch (error) {
-      console.error('Failed to send email:', error);
+      console.error("Failed to send email:", error);
       throw error;
     }
   }
 
-  generateReviewInvitationEmail(employeeName: string, reviewCycleId: string): { subject: string; html: string } {
-    const subject = 'Performance Review - Action Required';
-    const reviewLink = `${process.env.REPLIT_DOMAINS?.split(',')[0] || 'localhost:5000'}/evaluations/${reviewCycleId}`;
-    
+  generateReviewInvitationEmail(
+    employeeName: string,
+    reviewCycleId: string
+  ): { subject: string; html: string } {
+    const subject = "Performance Review - Action Required";
+    const reviewLink = `${
+      process.env.REPLIT_DOMAINS?.split(",")[0] || "localhost:5000"
+    }/evaluations/${reviewCycleId}`;
+
     const html = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <h2 style="color: #2563eb;">Performance Review Invitation</h2>
@@ -94,9 +104,12 @@ class EmailService {
     return { subject, html };
   }
 
-  generateReviewReminderEmail(employeeName: string, dueDate: string): { subject: string; html: string } {
-    const subject = 'Performance Review Reminder - Due Soon';
-    
+  generateReviewReminderEmail(
+    employeeName: string,
+    dueDate: string
+  ): { subject: string; html: string } {
+    const subject = "Performance Review Reminder - Due Soon";
+
     const html = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <h2 style="color: #f59e0b;">Performance Review Reminder</h2>
@@ -110,9 +123,12 @@ class EmailService {
     return { subject, html };
   }
 
-  generateReviewCompletionEmail(employeeName: string, managerName: string): { subject: string; html: string } {
-    const subject = 'Performance Review Completed';
-    
+  generateReviewCompletionEmail(
+    employeeName: string,
+    managerName: string
+  ): { subject: string; html: string } {
+    const subject = "Performance Review Completed";
+
     const html = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <h2 style="color: #10b981;">Performance Review Completed</h2>
@@ -126,9 +142,15 @@ class EmailService {
     return { subject, html };
   }
 
-  generateRegistrationNotificationEmail(name: string, companyName: string, designation: string, email: string, mobile: string): { subject: string; html: string } {
-    const subject = 'New Performance Hub Registration Interest';
-    
+  generateRegistrationNotificationEmail(
+    name: string,
+    companyName: string,
+    designation: string,
+    email: string,
+    mobile: string
+  ): { subject: string; html: string } {
+    const subject = "New Performance Hub Registration Interest";
+
     const html = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <h2 style="color: #2563eb;">New Registration Interest - Performance Hub</h2>
@@ -162,23 +184,41 @@ class EmailService {
     return { subject, html };
   }
 
-  generateCalendarInvite(employeeName: string, managerName: string, meetingDate: Date, duration?: number, location?: string, notes?: string, employeeEmail?: string, managerEmail?: string): string {
+  generateCalendarInvite(
+    employeeName: string,
+    managerName: string,
+    meetingDate: Date,
+    duration?: number,
+    location?: string,
+    notes?: string,
+    employeeEmail?: string,
+    managerEmail?: string
+  ): string {
     const durationMinutes = duration || 60;
-    const startDate = meetingDate.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
-    const endDate = new Date(meetingDate.getTime() + durationMinutes * 60 * 1000).toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
-    const uid = `${Date.now()}-${Math.random().toString(36).substring(2)}@performance-review.com`;
-    
+    const startDate =
+      meetingDate.toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
+    const endDate =
+      new Date(meetingDate.getTime() + durationMinutes * 60 * 1000)
+        .toISOString()
+        .replace(/[-:]/g, "")
+        .split(".")[0] + "Z";
+    const uid = `${Date.now()}-${Math.random()
+      .toString(36)
+      .substring(2)}@performance-review.com`;
+
     let description = `One-on-one performance review meeting between ${employeeName} and ${managerName}`;
     if (notes) {
       description += `\\n\\nNotes: ${notes}`;
     }
-    
-    const locationLine = location ? `\nLOCATION:${location.charAt(0).toUpperCase() + location.slice(1)}` : '';
-    
+
+    const locationLine = location
+      ? `\nLOCATION:${location.charAt(0).toUpperCase() + location.slice(1)}`
+      : "";
+
     // Use actual email addresses if provided, otherwise use placeholders
-    const empEmail = employeeEmail || 'employee@company.com';
-    const mgEmail = managerEmail || 'manager@company.com';
-    
+    const empEmail = employeeEmail || "employee@company.com";
+    const mgEmail = managerEmail || "manager@company.com";
+
     // RFC5546-compliant ICS with METHOD:REQUEST for proper RSVP functionality
     return `BEGIN:VCALENDAR
 VERSION:2.0
@@ -186,7 +226,7 @@ PRODID:-//Performance Review System//EN
 METHOD:REQUEST
 BEGIN:VEVENT
 UID:${uid}
-DTSTAMP:${new Date().toISOString().replace(/[-:]/g, '').split('.')[0]}Z
+DTSTAMP:${new Date().toISOString().replace(/[-:]/g, "").split(".")[0]}Z
 DTSTART:${startDate}
 DTEND:${endDate}
 SUMMARY:Performance Review Meeting - ${employeeName}
@@ -208,8 +248,15 @@ export async function sendEmail(options: EmailOptions): Promise<void> {
   return emailService.sendEmail(options);
 }
 
-export async function sendReviewInvitation(employeeEmail: string, employeeName: string, reviewCycleId: string): Promise<void> {
-  const { subject, html } = emailService.generateReviewInvitationEmail(employeeName, reviewCycleId);
+export async function sendReviewInvitation(
+  employeeEmail: string,
+  employeeName: string,
+  reviewCycleId: string
+): Promise<void> {
+  const { subject, html } = emailService.generateReviewInvitationEmail(
+    employeeName,
+    reviewCycleId
+  );
   return emailService.sendEmail({
     to: employeeEmail,
     subject,
@@ -217,8 +264,16 @@ export async function sendReviewInvitation(employeeEmail: string, employeeName: 
   });
 }
 
-export async function sendReviewReminder(employeeEmail: string, employeeName: string, dueDate: string, managerEmail?: string): Promise<void> {
-  const { subject, html } = emailService.generateReviewReminderEmail(employeeName, dueDate);
+export async function sendReviewReminder(
+  employeeEmail: string,
+  employeeName: string,
+  dueDate: string,
+  managerEmail?: string
+): Promise<void> {
+  const { subject, html } = emailService.generateReviewReminderEmail(
+    employeeName,
+    dueDate
+  );
   return emailService.sendEmail({
     to: employeeEmail,
     subject,
@@ -227,16 +282,25 @@ export async function sendReviewReminder(employeeEmail: string, employeeName: st
   });
 }
 
-export async function sendAppraisalInitiationEmail(employeeEmail: string, employeeName: string, appraisalType: string, dueDate?: Date): Promise<void> {
-  const dueDateStr = dueDate ? dueDate.toLocaleDateString() : 'TBD';
-  const subject = 'New Performance Appraisal - Action Required';
-  const appraisalLink = `${process.env.REPLIT_DOMAINS?.split(',')[0] || 'localhost:5000'}/employee/evaluations`;
-  
+export async function sendAppraisalInitiationEmail(
+  employeeEmail: string,
+  employeeName: string,
+  appraisalType: string,
+  dueDate?: Date
+): Promise<void> {
+  const dueDateStr = dueDate ? dueDate.toLocaleDateString() : "TBD";
+  const subject = "New Performance Appraisal - Action Required";
+  const appraisalLink = `${
+    process.env.REPLIT_DOMAINS?.split(",")[0] || "localhost:5000"
+  }/employee/evaluations`;
+
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
       <h2 style="color: #2563eb;">New Performance Appraisal Initiated</h2>
       <p>Dear ${employeeName},</p>
-      <p>A new ${appraisalType.replace('_', ' ').toUpperCase()} performance appraisal has been initiated for you.</p>
+      <p>A new ${appraisalType
+        .replace("_", " ")
+        .toUpperCase()} performance appraisal has been initiated for you.</p>
       <p><strong>Due Date:</strong> ${dueDateStr}</p>
       <p>Please complete your self-evaluation and prepare for your performance review meeting.</p>
       <div style="text-align: center; margin: 20px 0;">
@@ -248,7 +312,7 @@ export async function sendAppraisalInitiationEmail(employeeEmail: string, employ
       <p>Best regards,<br>HR Team</p>
     </div>
   `;
-  
+
   return emailService.sendEmail({
     to: employeeEmail,
     subject,
@@ -256,8 +320,15 @@ export async function sendAppraisalInitiationEmail(employeeEmail: string, employ
   });
 }
 
-export async function sendReviewCompletion(employeeEmail: string, employeeName: string, managerName: string): Promise<void> {
-  const { subject, html } = emailService.generateReviewCompletionEmail(employeeName, managerName);
+export async function sendReviewCompletion(
+  employeeEmail: string,
+  employeeName: string,
+  managerName: string
+): Promise<void> {
+  const { subject, html } = emailService.generateReviewCompletionEmail(
+    employeeName,
+    managerName
+  );
   return emailService.sendEmail({
     to: employeeEmail,
     subject,
@@ -265,10 +336,20 @@ export async function sendReviewCompletion(employeeEmail: string, employeeName: 
   });
 }
 
-export async function sendCalendarInvite(employeeEmail: string, managerEmail: string, employeeName: string, managerName: string, meetingDate: Date, companyId: string, duration?: number, location?: string, notes?: string): Promise<void> {
+export async function sendCalendarInvite(
+  employeeEmail: string,
+  managerEmail: string,
+  employeeName: string,
+  managerName: string,
+  meetingDate: Date,
+  companyId: string,
+  duration?: number,
+  location?: string,
+  notes?: string
+): Promise<void> {
   // Try to create calendar event using external APIs first
-  const { createPerformanceReviewMeeting } = await import('./calendarService');
-  
+  const { createPerformanceReviewMeeting } = await import("./calendarService");
+
   const calendarResult = await createPerformanceReviewMeeting(
     employeeName,
     managerName,
@@ -283,39 +364,55 @@ export async function sendCalendarInvite(employeeEmail: string, managerEmail: st
 
   // If Google Calendar or Outlook API succeeded, they will send their own invitations
   // with native RSVP functionality - no need to send our own email
-  if (calendarResult.success && calendarResult.provider !== 'ics') {
-    console.log(`Calendar invitation sent via ${calendarResult.provider} API with event ID: ${calendarResult.eventId}`);
+  if (calendarResult.success && calendarResult.provider !== "ics") {
+    console.log(
+      `Calendar invitation sent via ${calendarResult.provider} API with event ID: ${calendarResult.eventId}`
+    );
     return; // Let Google/Outlook handle the invitation
   }
 
   // Format dates like Gmail calendar invitations
-  const startTime = meetingDate.toLocaleTimeString('en-US', { 
-    hour: 'numeric', 
-    minute: '2-digit',
-    hour12: true 
+  const startTime = meetingDate.toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
   });
-  const endTime = new Date(meetingDate.getTime() + (duration || 60) * 60000).toLocaleTimeString('en-US', { 
-    hour: 'numeric', 
-    minute: '2-digit',
-    hour12: true 
+  const endTime = new Date(
+    meetingDate.getTime() + (duration || 60) * 60000
+  ).toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
   });
-  const dayName = meetingDate.toLocaleDateString('en-US', { weekday: 'short' });
-  const dateFormatted = meetingDate.toLocaleDateString('en-US', { 
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric'
+  const dayName = meetingDate.toLocaleDateString("en-US", { weekday: "short" });
+  const dateFormatted = meetingDate.toLocaleDateString("en-US", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
   });
-  
+
   // Gmail-style subject line
   const subject = `Invitation: Performance Review @ ${dayName} ${dateFormatted} ${startTime} - ${endTime} (${employeeEmail})`;
-  
-  const locationText = location === 'video' ? 'Video Call' : 
-                      location === 'phone' ? 'Phone Call' : 
-                      location === 'office' ? 'Office - In Person' : 'Office';
-  
+
+  const locationText =
+    location === "video"
+      ? "Video Call"
+      : location === "phone"
+      ? "Phone Call"
+      : location === "office"
+      ? "Office - In Person"
+      : "Office";
+
   // Generate Google Meet link for video calls
-  const meetingLink = location === 'video' ? `meet.google.com/${Math.random().toString(36).substring(2, 10)}-${Math.random().toString(36).substring(2, 6)}-${Math.random().toString(36).substring(2, 6)}` : null;
-  
+  const meetingLink =
+    location === "video"
+      ? `meet.google.com/${Math.random()
+          .toString(36)
+          .substring(2, 10)}-${Math.random()
+          .toString(36)
+          .substring(2, 6)}-${Math.random().toString(36).substring(2, 6)}`
+      : null;
+
   // Gmail-style calendar invitation HTML
   const html = `
     <div style="font-family: 'Google Sans', Roboto, RobotoDraft, Helvetica, Arial, sans-serif; background-color: #f8f9fa; margin: 0; padding: 20px;">
@@ -384,7 +481,9 @@ export async function sendCalendarInvite(employeeEmail: string, managerEmail: st
             </div>
           </div>
 
-          ${location === 'video' ? `
+          ${
+            location === "video"
+              ? `
           <!-- Google Meet -->
           <div style="margin-bottom: 20px;">
             <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
@@ -397,9 +496,13 @@ export async function sendCalendarInvite(employeeEmail: string, managerEmail: st
               <h3 style="margin: 0; font-size: 16px; color: #202124;">Add Google Meet video conferencing</h3>
             </div>
           </div>
-          ` : ''}
+          `
+              : ""
+          }
 
-          ${location !== 'video' ? `
+          ${
+            location !== "video"
+              ? `
           <!-- Location -->
           <div style="margin-bottom: 20px;">
             <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
@@ -416,9 +519,13 @@ export async function sendCalendarInvite(employeeEmail: string, managerEmail: st
               </div>
             </div>
           </div>
-          ` : ''}
+          `
+              : ""
+          }
 
-          ${notes ? `
+          ${
+            notes
+              ? `
           <!-- Description -->
           <div style="margin-bottom: 20px;">
             <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
@@ -435,7 +542,9 @@ export async function sendCalendarInvite(employeeEmail: string, managerEmail: st
               </div>
             </div>
           </div>
-          ` : ''}
+          `
+              : ""
+          }
 
           <!-- Organizer -->
           <div style="margin-bottom: 20px;">
@@ -452,7 +561,9 @@ export async function sendCalendarInvite(employeeEmail: string, managerEmail: st
 
         </div>
 
-        ${location === 'video' && meetingLink ? `
+        ${
+          location === "video" && meetingLink
+            ? `
         <!-- Join Meeting Section -->
         <div style="background-color: #f8f9fa; padding: 20px 24px; border-top: 1px solid #e8eaed;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
@@ -474,7 +585,9 @@ export async function sendCalendarInvite(employeeEmail: string, managerEmail: st
             </div>
           </div>
         </div>
-        ` : ''}
+        `
+            : ""
+        }
 
         <!-- Reply Section -->
         <div style="background-color: #f8f9fa; padding: 16px 24px; border-top: 1px solid #e8eaed;">
@@ -499,7 +612,16 @@ export async function sendCalendarInvite(employeeEmail: string, managerEmail: st
   `;
 
   // Generate RFC5546-compliant ICS content with proper RSVP functionality for fallback
-  const icsContent = emailService.generateCalendarInvite(employeeName, managerName, meetingDate, duration, location, notes, employeeEmail, managerEmail);
+  const icsContent = emailService.generateCalendarInvite(
+    employeeName,
+    managerName,
+    meetingDate,
+    duration,
+    location,
+    notes,
+    employeeEmail,
+    managerEmail
+  );
 
   const emailOptions: any = {
     subject,
@@ -507,12 +629,14 @@ export async function sendCalendarInvite(employeeEmail: string, managerEmail: st
   };
 
   // Add ICS attachment if calendar API failed or is not configured
-  if (calendarResult.provider === 'ics' || !calendarResult.success) {
-    emailOptions.attachments = [{
-      filename: 'meeting-invite.ics',
-      content: icsContent,
-      contentType: 'text/calendar'
-    }];
+  if (calendarResult.provider === "ics" || !calendarResult.success) {
+    emailOptions.attachments = [
+      {
+        filename: "meeting-invite.ics",
+        content: icsContent,
+        contentType: "text/calendar",
+      },
+    ];
   }
 
   // Send to both employee and manager
@@ -527,26 +651,42 @@ export async function sendCalendarInvite(employeeEmail: string, managerEmail: st
   });
 }
 
-export function generateRegistrationNotificationEmail(name: string, companyName: string, designation: string, email: string, mobile: string): { subject: string; html: string } {
-  return emailService.generateRegistrationNotificationEmail(name, companyName, designation, email, mobile);
+export function generateRegistrationNotificationEmail(
+  name: string,
+  companyName: string,
+  designation: string,
+  email: string,
+  mobile: string
+): { subject: string; html: string } {
+  return emailService.generateRegistrationNotificationEmail(
+    name,
+    companyName,
+    designation,
+    email,
+    mobile
+  );
 }
 
 // Manager Workflow Email Functions
 
 export async function sendMeetingInvite(
-  employeeEmail: string, 
-  employeeName: string, 
-  managerName: string, 
-  meetingDate: Date, 
-  meetingTitle: string, 
+  employeeEmail: string,
+  employeeName: string,
+  managerName: string,
+  meetingDate: Date,
+  meetingTitle: string,
   meetingDescription: string
 ): Promise<void> {
-  const icsContent = emailService.generateCalendarInvite(employeeName, managerName, meetingDate);
-  
+  const icsContent = emailService.generateCalendarInvite(
+    employeeName,
+    managerName,
+    meetingDate
+  );
+
   const subject = `Meeting Invitation: ${meetingTitle}`;
   const formattedDate = meetingDate.toLocaleDateString();
   const formattedTime = meetingDate.toLocaleTimeString();
-  
+
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
       <h2 style="color: #2563eb;">Performance Review Meeting Invitation</h2>
@@ -573,11 +713,13 @@ export async function sendMeetingInvite(
     to: employeeEmail,
     subject,
     html,
-    attachments: [{
-      filename: 'meeting-invite.ics',
-      content: icsContent,
-      contentType: 'text/calendar'
-    }] as any
+    attachments: [
+      {
+        filename: "meeting-invite.ics",
+        content: icsContent,
+        contentType: "text/calendar",
+      },
+    ] as any,
   });
 }
 
@@ -586,34 +728,58 @@ export async function sendEvaluationCompletionNotification(
   recipientName: string,
   otherPartyName: string,
   evaluation: any,
-  recipientRole: 'employee' | 'manager' | 'hr_manager',
+  recipientRole: "employee" | "manager" | "hr_manager",
   employeeData?: { name: string; code?: string; email?: string },
   managerName?: string
 ): Promise<void> {
   let subject: string;
   let html: string;
-  
+
   // Determine if meeting notes should be shown based on role and visibility setting
-  const shouldShowMeetingNotes = evaluation.meetingNotes && (
-    recipientRole !== 'employee' || evaluation.showNotesToEmployee === true
-  );
-  
-  if (recipientRole === 'employee') {
-    subject = 'Performance Review Completed - Results Available';
+  const shouldShowMeetingNotes =
+    evaluation.meetingNotes &&
+    (recipientRole !== "employee" || evaluation.showNotesToEmployee === true);
+
+  if (recipientRole === "employee") {
+    subject = "Performance Review Completed - Results Available";
     html = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <h2 style="color: #059669;">Your Performance Review is Complete!</h2>
         <p>Dear ${recipientName},</p>
-        <p>Your performance review has been completed by your manager, ${managerName || otherPartyName}.</p>
+        <p>Your performance review has been completed by your manager, ${
+          managerName || otherPartyName
+        }.</p>
         
         <div style="background-color: #f0fdf4; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #059669;">
           <h3 style="color: #065f46; margin-top: 0;">Review Summary</h3>
-          ${employeeData?.code ? `<p><strong>Employee Code:</strong> ${employeeData.code}</p>` : ''}
-          <p><strong>Employee Name:</strong> ${employeeData?.name || recipientName}</p>
-          ${employeeData?.email ? `<p><strong>Employee Email ID:</strong> ${employeeData.email}</p>` : ''}
-          ${evaluation.overallRating ? `<p><strong>Final Rating:</strong> ${evaluation.overallRating}/5</p>` : ''}
-          <p><strong>Meeting Completed On:</strong> ${evaluation.finalizedAt ? new Date(evaluation.finalizedAt).toLocaleDateString() : 'N/A'}</p>
-          ${shouldShowMeetingNotes ? `<p><strong>Meeting Notes:</strong></p><p style="white-space: pre-wrap; margin-top: 5px;">${evaluation.meetingNotes}</p>` : ''}
+          ${
+            employeeData?.code
+              ? `<p><strong>Employee Code:</strong> ${employeeData.code}</p>`
+              : ""
+          }
+          <p><strong>Employee Name:</strong> ${
+            employeeData?.name || recipientName
+          }</p>
+          ${
+            employeeData?.email
+              ? `<p><strong>Employee Email ID:</strong> ${employeeData.email}</p>`
+              : ""
+          }
+          ${
+            evaluation.overallRating
+              ? `<p><strong>Final Rating:</strong> ${evaluation.overallRating}/5</p>`
+              : ""
+          }
+          <p><strong>Meeting Completed On:</strong> ${
+            evaluation.finalizedAt
+              ? new Date(evaluation.finalizedAt).toLocaleDateString()
+              : "N/A"
+          }</p>
+          ${
+            shouldShowMeetingNotes
+              ? `<p><strong>Meeting Notes:</strong></p><p style="white-space: pre-wrap; margin-top: 5px;">${evaluation.meetingNotes}</p>`
+              : ""
+          }
           <p><strong>Manager:</strong> ${managerName || otherPartyName}</p>
         </div>
         
@@ -623,19 +789,33 @@ export async function sendEvaluationCompletionNotification(
         <p>Best regards,<br>HR Team</p>
       </div>
     `;
-  } else if (recipientRole === 'manager') {
-    subject = `Performance Review Completed - ${employeeData?.name || otherPartyName}`;
+  } else if (recipientRole === "manager") {
+    subject = `Performance Review Completed - ${
+      employeeData?.name || otherPartyName
+    }`;
     html = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <h2 style="color: #2563eb;">Performance Review Completion Confirmation</h2>
         <p>Dear ${recipientName},</p>
-        <p>This confirms that you have successfully completed the performance review for ${employeeData?.name || otherPartyName}.</p>
+        <p>This confirms that you have successfully completed the performance review for ${
+          employeeData?.name || otherPartyName
+        }.</p>
         
         <div style="background-color: #eff6ff; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #2563eb;">
           <h3 style="color: #1e40af; margin-top: 0;">Completion Summary</h3>
-          <p><strong>Employee Name:</strong> ${employeeData?.name || otherPartyName}</p>
-          ${evaluation.overallRating ? `<p><strong>Final Rating Given:</strong> ${evaluation.overallRating}/5</p>` : ''}
-          <p><strong>Completed On:</strong> ${evaluation.finalizedAt ? new Date(evaluation.finalizedAt).toLocaleDateString() : 'N/A'}</p>
+          <p><strong>Employee Name:</strong> ${
+            employeeData?.name || otherPartyName
+          }</p>
+          ${
+            evaluation.overallRating
+              ? `<p><strong>Final Rating Given:</strong> ${evaluation.overallRating}/5</p>`
+              : ""
+          }
+          <p><strong>Completed On:</strong> ${
+            evaluation.finalizedAt
+              ? new Date(evaluation.finalizedAt).toLocaleDateString()
+              : "N/A"
+          }</p>
         </div>
         
         <p>The employee has been notified of the completion and can now view their review results.</p>
@@ -646,8 +826,11 @@ export async function sendEvaluationCompletionNotification(
         <p>Best regards,<br>Performance Management System</p>
       </div>
     `;
-  } else { // hr_manager
-    subject = `Performance Review Completed - ${employeeData?.name || otherPartyName}`;
+  } else {
+    // hr_manager
+    subject = `Performance Review Completed - ${
+      employeeData?.name || otherPartyName
+    }`;
     html = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <h2 style="color: #7c3aed;">Performance Review Completion Notice</h2>
@@ -656,9 +839,19 @@ export async function sendEvaluationCompletionNotification(
         
         <div style="background-color: #faf5ff; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #7c3aed;">
           <h3 style="color: #5b21b6; margin-top: 0;">Review Details</h3>
-          <p><strong>Employee Name:</strong> ${employeeData?.name || otherPartyName}</p>
-          ${evaluation.overallRating ? `<p><strong>Final Rating:</strong> ${evaluation.overallRating}/5</p>` : ''}
-          <p><strong>Completed On:</strong> ${evaluation.finalizedAt ? new Date(evaluation.finalizedAt).toLocaleDateString() : 'N/A'}</p>
+          <p><strong>Employee Name:</strong> ${
+            employeeData?.name || otherPartyName
+          }</p>
+          ${
+            evaluation.overallRating
+              ? `<p><strong>Final Rating:</strong> ${evaluation.overallRating}/5</p>`
+              : ""
+          }
+          <p><strong>Completed On:</strong> ${
+            evaluation.finalizedAt
+              ? new Date(evaluation.finalizedAt).toLocaleDateString()
+              : "N/A"
+          }</p>
           <p><strong>Status:</strong> Completed</p>
         </div>
         
@@ -686,10 +879,10 @@ export async function sendEmployeeSubmissionNotification(
   hrManagerEmails?: string[]
 ): Promise<void> {
   const subject = `Employee Self-Evaluation Submitted - ${employeeName}`;
-  const domain = process.env.REPLIT_DOMAINS?.split(',')[0] || 'localhost:5000';
-  const protocol = domain.includes('localhost') ? 'http://' : 'https://';
+  const domain = process.env.REPLIT_DOMAINS?.split(",")[0] || "localhost:5000";
+  const protocol = domain.includes("localhost") ? "http://" : "https://";
   const evaluationLink = `${protocol}${domain}/review-appraisal`;
-  
+
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
       <h2 style="color: #2563eb;">Employee Self-Evaluation Submitted</h2>
@@ -717,12 +910,15 @@ export async function sendEmployeeSubmissionNotification(
       <p>Best regards,<br>Performance Management System</p>
     </div>
   `;
-  
+
   return emailService.sendEmail({
     to: managerEmail,
     subject,
     html,
-    cc: hrManagerEmails && hrManagerEmails.length > 0 ? hrManagerEmails : undefined,
+    cc:
+      hrManagerEmails && hrManagerEmails.length > 0
+        ? hrManagerEmails
+        : undefined,
   });
 }
 
@@ -735,10 +931,10 @@ export async function sendManagerSubmissionNotification(
   hrManagerEmails?: string[]
 ): Promise<void> {
   const subject = `Manager Evaluation Submitted - Your Performance Review`;
-  const domain = process.env.REPLIT_DOMAINS?.split(',')[0] || 'localhost:5000';
-  const protocol = domain.includes('localhost') ? 'http://' : 'https://';
+  const domain = process.env.REPLIT_DOMAINS?.split(",")[0] || "localhost:5000";
+  const protocol = domain.includes("localhost") ? "http://" : "https://";
   const evaluationLink = `${protocol}${domain}/evaluations`;
-  
+
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
       <h2 style="color: #2563eb;">Manager Evaluation Submitted</h2>
@@ -766,11 +962,14 @@ export async function sendManagerSubmissionNotification(
       <p>Best regards,<br>Performance Management System</p>
     </div>
   `;
-  
+
   return emailService.sendEmail({
     to: employeeEmail,
     subject,
     html,
-    cc: hrManagerEmails && hrManagerEmails.length > 0 ? hrManagerEmails : undefined,
+    cc:
+      hrManagerEmails && hrManagerEmails.length > 0
+        ? hrManagerEmails
+        : undefined,
   });
 }

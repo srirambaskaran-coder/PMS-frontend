@@ -20,7 +20,9 @@ export function Header() {
 
   const switchRoleMutation = useMutation({
     mutationFn: async (role: string) => {
-      const response = await apiRequest("POST", "/api/auth/switch-role", { role });
+      const response = await apiRequest("POST", "/api/auth/switch-role", {
+        role,
+      });
       return response.json();
     },
     onSuccess: () => {
@@ -44,8 +46,14 @@ export function Header() {
     switchRoleMutation.mutate(role);
   };
 
-  const handleLogout = () => {
-    window.location.href = "/api/logout";
+  const handleLogout = async () => {
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+      window.location.href = "/";
+    } catch (error) {
+      console.error("Logout error:", error);
+      window.location.href = "/";
+    }
   };
 
   // Get active role and available roles from user object
@@ -55,15 +63,23 @@ export function Header() {
 
   // Helper function to format role names properly
   const formatRoleName = (role: string) => {
-    if (role === 'hr_manager') return 'HR Manager';
-    return role.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+    if (role === "hr_manager") return "HR Manager";
+    return role
+      .split("_")
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(" ");
   };
 
   return (
-    <header className="bg-card border-b border-border px-6 py-4" data-testid="header">
+    <header
+      className="bg-card border-b border-border px-6 py-4"
+      data-testid="header"
+    >
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold" data-testid="page-title">Performance Dashboard</h1>
+          <h1 className="text-xl font-semibold" data-testid="page-title">
+            Performance Dashboard
+          </h1>
           <p className="text-sm text-muted-foreground">
             Monitor and manage employee performance reviews
           </p>
@@ -86,13 +102,20 @@ export function Header() {
           {/* User Profile */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="relative h-8 w-8 rounded-full" data-testid="user-profile-button">
+              <Button
+                variant="ghost"
+                className="relative h-8 w-8 rounded-full"
+                data-testid="user-profile-button"
+              >
                 <div className="w-8 h-8 bg-accent rounded-full flex items-center justify-center">
                   <span className="text-accent-foreground text-sm font-medium">
-                    {(user as any)?.firstName && (user as any)?.lastName 
-                      ? `${(user as any).firstName[0]?.toUpperCase()}${(user as any).lastName[0]?.toUpperCase()}`
-                      : <User className="h-4 w-4" />
-                    }
+                    {(user as any)?.firstName && (user as any)?.lastName ? (
+                      `${(user as any).firstName[0]?.toUpperCase()}${(
+                        user as any
+                      ).lastName[0]?.toUpperCase()}`
+                    ) : (
+                      <User className="h-4 w-4" />
+                    )}
                   </span>
                 </div>
               </Button>
@@ -100,17 +123,25 @@ export function Header() {
             <DropdownMenuContent className="w-56" align="end" forceMount>
               <DropdownMenuLabel className="font-normal">
                 <div className="flex flex-col space-y-1">
-                  <p className="text-sm font-medium leading-none" data-testid="user-name-display">
-                    {(user as any)?.firstName && (user as any)?.lastName 
+                  <p
+                    className="text-sm font-medium leading-none"
+                    data-testid="user-name-display"
+                  >
+                    {(user as any)?.firstName && (user as any)?.lastName
                       ? `${(user as any).firstName} ${(user as any).lastName}`
-                      : 'Loading...'
-                    }
+                      : "Loading..."}
                   </p>
-                  <p className="text-xs leading-none text-muted-foreground" data-testid="user-email-display">
-                    {(user as any)?.email || 'Loading...'}
+                  <p
+                    className="text-xs leading-none text-muted-foreground"
+                    data-testid="user-email-display"
+                  >
+                    {(user as any)?.email || "Loading..."}
                   </p>
-                  <p className="text-xs leading-none text-muted-foreground" data-testid="user-role-display">
-                    {activeRole ? formatRoleName(activeRole) : 'Loading...'}
+                  <p
+                    className="text-xs leading-none text-muted-foreground"
+                    data-testid="user-role-display"
+                  >
+                    {activeRole ? formatRoleName(activeRole) : "Loading..."}
                     {hasMultipleRoles && (
                       <span className="ml-1 text-primary">•</span>
                     )}
@@ -118,7 +149,7 @@ export function Header() {
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              
+
               {/* Role Switcher - Only show if user has multiple roles */}
               {hasMultipleRoles && (
                 <>
@@ -129,21 +160,34 @@ export function Header() {
                     <DropdownMenuItem
                       key={role}
                       onClick={() => handleSwitchRole(role)}
-                      disabled={role === activeRole || switchRoleMutation.isPending}
+                      disabled={
+                        role === activeRole || switchRoleMutation.isPending
+                      }
                       data-testid={`switch-role-${role}`}
                     >
-                      <RefreshCw className={`mr-2 h-4 w-4 ${switchRoleMutation.isPending ? 'animate-spin' : ''}`} />
-                      <span className={role === activeRole ? 'font-medium' : ''}>
+                      <RefreshCw
+                        className={`mr-2 h-4 w-4 ${
+                          switchRoleMutation.isPending ? "animate-spin" : ""
+                        }`}
+                      />
+                      <span
+                        className={role === activeRole ? "font-medium" : ""}
+                      >
                         {formatRoleName(role)}
-                        {role === activeRole && <span className="ml-2 text-primary">✓</span>}
+                        {role === activeRole && (
+                          <span className="ml-2 text-primary">✓</span>
+                        )}
                       </span>
                     </DropdownMenuItem>
                   ))}
                   <DropdownMenuSeparator />
                 </>
               )}
-              
-              <DropdownMenuItem onClick={handleLogout} data-testid="logout-button">
+
+              <DropdownMenuItem
+                onClick={handleLogout}
+                data-testid="logout-button"
+              >
                 <LogOut className="mr-2 h-4 w-4" />
                 <span>Sign out</span>
               </DropdownMenuItem>

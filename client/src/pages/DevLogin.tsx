@@ -1,7 +1,13 @@
 import { useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Users, Building, Shield, UserCheck, User } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
@@ -23,7 +29,7 @@ const roleIcons = {
 
 const roleColors = {
   super_admin: "bg-red-500",
-  admin: "bg-purple-500", 
+  admin: "bg-purple-500",
   hr_manager: "bg-blue-500",
   manager: "bg-green-500",
   employee: "bg-gray-500",
@@ -39,18 +45,20 @@ export default function DevLogin() {
 
   // Seed users mutation
   const seedUsersMutation = useMutation({
-    mutationFn: () => fetch("/api/dev/seed-users", {
-      method: "POST",
-    }).then(res => res.json()),
+    mutationFn: () =>
+      fetch("/api/dev/seed-users", {
+        method: "POST",
+      }).then((res) => res.json()),
   });
 
   // Login as user mutation
   const loginMutation = useMutation({
-    mutationFn: (userId: string) => fetch("/api/dev/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userId }),
-    }).then(res => res.json()),
+    mutationFn: (userId: string) =>
+      fetch("/api/dev/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId }),
+      }).then((res) => res.json()),
     onSuccess: () => {
       window.location.href = "/";
     },
@@ -103,36 +111,45 @@ export default function DevLogin() {
             <CardHeader className="text-center">
               <CardTitle>Setup Required</CardTitle>
               <CardDescription>
-                Test users haven't been created yet. Click below to seed the database with test accounts.
+                Test users haven't been created yet. Click below to seed the
+                database with test accounts.
               </CardDescription>
             </CardHeader>
             <CardContent className="text-center">
-              <Button 
+              <Button
                 onClick={handleSeedUsers}
                 disabled={seedUsersMutation.isPending}
                 size="lg"
                 data-testid="seed-users-button"
               >
-                {seedUsersMutation.isPending ? "Creating Users..." : "Create Test Users"}
+                {seedUsersMutation.isPending
+                  ? "Creating Users..."
+                  : "Create Test Users"}
               </Button>
             </CardContent>
           </Card>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {testUsers.map((user) => {
-              const Icon = roleIcons[user.role as keyof typeof roleIcons] || User;
-              const isLoading = loginMutation.isPending && selectedUser === user.id;
-              
+              const Icon =
+                roleIcons[user.role as keyof typeof roleIcons] || User;
+              const isLoading =
+                loginMutation.isPending && selectedUser === user.id;
+
               return (
-                <Card 
-                  key={user.id} 
+                <Card
+                  key={user.id}
                   className="hover:shadow-lg transition-shadow cursor-pointer"
                   onClick={() => handleLogin(user.id)}
                   data-testid={`login-card-${user.role}`}
                 >
                   <CardHeader className="text-center">
                     <div className="flex justify-center mb-3">
-                      <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${roleColors[user.role as keyof typeof roleColors]}`}>
+                      <div
+                        className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+                          roleColors[user.role as keyof typeof roleColors]
+                        }`}
+                      >
                         <Icon className="h-6 w-6 text-white" />
                       </div>
                     </div>
@@ -141,9 +158,9 @@ export default function DevLogin() {
                   </CardHeader>
                   <CardContent className="text-center">
                     <Badge variant="secondary" className="mb-4">
-                      {user.role.replace('_', ' ').toUpperCase()}
+                      {user.role.replace("_", " ").toUpperCase()}
                     </Badge>
-                    <Button 
+                    <Button
                       className="w-full"
                       disabled={isLoading}
                       data-testid={`login-button-${user.role}`}
@@ -160,16 +177,17 @@ export default function DevLogin() {
         <div className="mt-8 text-center">
           <Card className="max-w-2xl mx-auto">
             <CardHeader>
-              <CardTitle className="text-lg">OAuth Authentication Issue</CardTitle>
+              <CardTitle className="text-lg">Development Mode</CardTitle>
               <CardDescription>
-                The Replit OAuth authentication is currently experiencing issues. 
-                This development login system allows you to test all user roles without OAuth.
+                This development login system allows you to test all user roles
+                quickly. Use the Landing page company login for production
+                authentication.
               </CardDescription>
             </CardHeader>
             <CardContent>
               <p className="text-sm text-muted-foreground">
-                Once OAuth is working, users will login through the normal Replit authentication flow.
-                This dev login will be removed in production.
+                This dev login is for testing purposes only and will not be
+                available in production builds.
               </p>
             </CardContent>
           </Card>

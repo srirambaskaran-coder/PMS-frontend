@@ -1,15 +1,8 @@
-import { Pool, neonConfig } from '@neondatabase/serverless';
-import { drizzle } from 'drizzle-orm/neon-serverless';
-import ws from "ws";
-import * as schema from "@shared/schema";
+// Re-export MSSQL pool for backward compatibility
+// All database operations should now use stored procedures via getPool()
+export { getPool, closePool } from "./mssql";
 
-neonConfig.webSocketConstructor = ws;
-
-if (!process.env.DATABASE_URL) {
-  throw new Error(
-    "DATABASE_URL must be set. Did you forget to provision a database?",
-  );
-}
-
-export const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-export const db = drizzle({ client: pool, schema });
+// Deprecated: kept for gradual migration, will be removed
+// Use getPool() and stored procedures instead
+export const pool = null;
+export const db = null;
