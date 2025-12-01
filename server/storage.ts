@@ -390,8 +390,10 @@ function mapRawAppraisalGroup(raw: any): AppraisalGroup {
   } as AppraisalGroup;
 }
 
-function mapRawAppraisalGroupMember(raw: any): AppraisalGroupMember {
-  return {
+function mapRawAppraisalGroupMember(
+  raw: any
+): AppraisalGroupMember & { user: any } {
+  const member = {
     id: raw.Id ?? raw.id,
     appraisalGroupId:
       raw.AppraisalGroupId ?? raw.appraisal_group_id ?? raw.appraisalGroupId,
@@ -399,6 +401,23 @@ function mapRawAppraisalGroupMember(raw: any): AppraisalGroupMember {
     addedById: raw.AddedById ?? raw.added_by_id ?? raw.addedById,
     addedAt: raw.AddedAt ?? raw.added_at ?? raw.addedAt ?? null,
   } as AppraisalGroupMember;
+
+  // Include user details from the SP result
+  const user =
+    raw.FirstName || raw.Email
+      ? {
+          id: raw.UserId ?? raw.user_id ?? raw.userId,
+          firstName: raw.FirstName ?? raw.first_name ?? null,
+          lastName: raw.LastName ?? raw.last_name ?? null,
+          email: raw.Email ?? raw.email ?? null,
+          code: raw.Code ?? raw.code ?? null,
+          designation: raw.Designation ?? raw.designation ?? null,
+          department: raw.Department ?? raw.department ?? null,
+          status: raw.Status ?? raw.status ?? "active",
+        }
+      : null;
+
+  return { ...member, user };
 }
 
 function parseTemplateIds(value: any): string[] | null {
@@ -433,20 +452,30 @@ function safeParseJson(value: any): any {
 }
 
 function mapRawInitiatedAppraisal(raw: any): InitiatedAppraisal {
+  // Handle QuestionnaireTemplateId (single) or QuestionnaireTemplateIds (array)
+  let questionnaireTemplateIds: string[] = [];
+  if (raw.QuestionnaireTemplateIds ?? raw.questionnaire_template_ids) {
+    questionnaireTemplateIds = parseTemplateIds(
+      raw.QuestionnaireTemplateIds ?? raw.questionnaire_template_ids
+    ) ?? [];
+  } else if (raw.QuestionnaireTemplateId ?? raw.questionnaire_template_id) {
+    const singleId = raw.QuestionnaireTemplateId ?? raw.questionnaire_template_id;
+    if (singleId) questionnaireTemplateIds = [singleId];
+  }
+  
   return {
     id: raw.Id ?? raw.id,
     appraisalGroupId:
-      raw.AppraisalGroupId ?? raw.appraisal_group_id ?? raw.appraisalGroupId,
-    appraisalType: raw.AppraisalType ?? raw.appraisal_type ?? raw.appraisalType,
-    questionnaireTemplateIds:
-      parseTemplateIds(
-        raw.QuestionnaireTemplateIds ?? raw.questionnaire_template_ids
-      ) ?? [],
+      raw.AppraisalGroupId ?? raw.appraisal_group_id ?? raw.appraisalGroupId ?? null,
+    appraisalType: raw.AppraisalType ?? raw.appraisal_type ?? raw.appraisalType ?? "questionnaire_based",
+    questionnaireTemplateIds,
     documentUrl: raw.DocumentUrl ?? raw.document_url ?? raw.documentUrl ?? null,
     frequencyCalendarId:
       raw.FrequencyCalendarId ??
       raw.frequency_calendar_id ??
       raw.frequencyCalendarId ??
+      raw.FrequencyCalendarDetailId ??
+      raw.frequency_calendar_detail_id ??
       null,
     daysToInitiate: raw.DaysToInitiate ?? raw.days_to_initiate ?? 0,
     daysToClose: raw.DaysToClose ?? raw.days_to_close ?? 30,
@@ -467,8 +496,9 @@ function mapRawInitiatedAppraisal(raw: any): InitiatedAppraisal {
     publishType:
       raw.PublishType ?? raw.publish_type ?? raw.publishType ?? "now",
     createdById:
-      raw.CreatedById ?? raw.created_by_id ?? raw.createdById ?? null,
-    createdAt: raw.CreatedAt ?? raw.created_at ?? raw.createdAt ?? null,
+      raw.CreatedById ?? raw.created_by_id ?? raw.createdById ?? 
+      raw.InitiatedById ?? raw.initiated_by_id ?? null,
+    createdAt: raw.CreatedAt ?? raw.created_at ?? raw.createdAt ?? raw.InitiatedAt ?? raw.initiated_at ?? null,
     updatedAt: raw.UpdatedAt ?? raw.updated_at ?? raw.updatedAt ?? null,
   } as InitiatedAppraisal;
 }
@@ -840,7 +870,9 @@ export interface IStorage {
   getAppraisalGroups(createdById: string): Promise<AppraisalGroup[]>;
   getAppraisalGroupsWithMembers(
     createdById: string
-  ): Promise<(AppraisalGroup & { members: AppraisalGroupMember[] })[]>;
+  ): Promise<
+    (AppraisalGroup & { members: (AppraisalGroupMember & { user: any })[] })[]
+  >;
   getAppraisalGroup(
     id: string,
     createdById: string
@@ -859,11 +891,11 @@ export interface IStorage {
   getAppraisalGroupMembers(
     appraisalGroupId: string,
     createdById: string
-  ): Promise<AppraisalGroupMember[]>;
+  ): Promise<(AppraisalGroupMember & { user: any })[]>;
   addAppraisalGroupMember(
     member: InsertAppraisalGroupMember,
     createdById: string
-  ): Promise<AppraisalGroupMember>;
+  ): Promise<AppraisalGroupMember & { user: any }>;
   removeAppraisalGroupMember(
     appraisalGroupId: string,
     userId: string,
@@ -2471,7 +2503,9 @@ export class DatabaseStorage implements IStorage {
   }
   async getAppraisalGroupsWithMembers(
     createdById: string
-  ): Promise<(AppraisalGroup & { members: AppraisalGroupMember[] })[]> {
+  ): Promise<
+    (AppraisalGroup & { members: (AppraisalGroupMember & { user: any })[] })[]
+  > {
     const groups = await this.getAppraisalGroups(createdById);
     const withMembers = await Promise.all(
       groups.map(async (g) => {
@@ -2483,13 +2517,14 @@ export class DatabaseStorage implements IStorage {
   }
   async getAppraisalGroupMembers(
     appraisalGroupId: string,
-    _createdById: string
-  ): Promise<AppraisalGroupMember[]> {
+    createdById: string
+  ): Promise<(AppraisalGroupMember & { user: any })[]> {
     const pool = await getPool();
     try {
       const result = await pool
         .request()
         .input("AppraisalGroupId", appraisalGroupId)
+        .input("CreatedById", createdById)
         .execute("dbo.GetAppraisalGroupMembers");
       return (result.recordset || []).map(mapRawAppraisalGroupMember);
     } catch {
@@ -2499,7 +2534,7 @@ export class DatabaseStorage implements IStorage {
   async addAppraisalGroupMember(
     member: InsertAppraisalGroupMember,
     _createdById: string
-  ): Promise<AppraisalGroupMember> {
+  ): Promise<AppraisalGroupMember & { user: any }> {
     const pool = await getPool();
     const req = pool
       .request()
@@ -2530,23 +2565,36 @@ export class DatabaseStorage implements IStorage {
     createdById: string
   ): Promise<InitiatedAppraisal> {
     const pool = await getPool();
-    // Align with current SP signature (FrequencyCalendarDetailId, AppraisalCycleId, QuestionnaireTemplateId, InitiatedById, Status)
-    // We persist extended fields only in memory for now until SP/table evolves.
-    const questionnaireTemplateId =
-      (appraisal.questionnaireTemplateIds &&
-        appraisal.questionnaireTemplateIds[0]) ||
-      (appraisal as any).questionnaireTemplateId ||
-      null;
+    // SP signature: @AppraisalGroupId, @AppraisalType, @QuestionnaireTemplateId, @DocumentUrl,
+    // @FrequencyCalendarId, @DaysToInitiate, @DaysToClose, @NumberOfReminders,
+    // @ExcludeTenureLessThanYear, @ExcludedEmployeeIds, @Status, @MakePublic, @PublishType,
+    // @CreatedById, @QuestionnaireTemplateIds
+    const questionnaireTemplateId = appraisal.questionnaireTemplateIds?.[0] || null;
+    const questionnaireTemplateIdsJson = appraisal.questionnaireTemplateIds?.length 
+      ? JSON.stringify(appraisal.questionnaireTemplateIds) 
+      : null;
+    const excludedEmployeeIdsJson = appraisal.excludedEmployeeIds?.length
+      ? JSON.stringify(appraisal.excludedEmployeeIds)
+      : null;
+    
     const req = pool
       .request()
-      .input(
-        "FrequencyCalendarDetailId",
-        (appraisal as any).frequencyCalendarDetailId || null
-      )
-      .input("AppraisalCycleId", (appraisal as any).appraisalCycleId || null)
+      .input("AppraisalGroupId", appraisal.appraisalGroupId)
+      .input("AppraisalType", appraisal.appraisalType || "questionnaire_based")
       .input("QuestionnaireTemplateId", questionnaireTemplateId)
-      .input("InitiatedById", createdById)
-      .input("Status", appraisal.status || "initiated");
+      .input("DocumentUrl", appraisal.documentUrl || null)
+      .input("FrequencyCalendarId", appraisal.frequencyCalendarId || null)
+      .input("DaysToInitiate", appraisal.daysToInitiate || 0)
+      .input("DaysToClose", appraisal.daysToClose || 30)
+      .input("NumberOfReminders", appraisal.numberOfReminders || 3)
+      .input("ExcludeTenureLessThanYear", appraisal.excludeTenureLessThanYear || false)
+      .input("ExcludedEmployeeIds", excludedEmployeeIdsJson)
+      .input("Status", appraisal.status || "draft")
+      .input("MakePublic", appraisal.makePublic || false)
+      .input("PublishType", appraisal.publishType || "now")
+      .input("CreatedById", createdById)
+      .input("QuestionnaireTemplateIds", questionnaireTemplateIdsJson);
+    
     const result = await req.execute("dbo.CreateInitiatedAppraisal");
     const raw = result.recordset[0];
     const mapped = mapRawInitiatedAppraisal(raw);
@@ -2554,9 +2602,7 @@ export class DatabaseStorage implements IStorage {
       ...mapped,
       appraisalGroupId: appraisal.appraisalGroupId,
       appraisalType: appraisal.appraisalType,
-      questionnaireTemplateIds:
-        appraisal.questionnaireTemplateIds ||
-        (questionnaireTemplateId ? [questionnaireTemplateId] : []),
+      questionnaireTemplateIds: appraisal.questionnaireTemplateIds || [],
       documentUrl: appraisal.documentUrl || null,
       frequencyCalendarId: appraisal.frequencyCalendarId || null,
       daysToInitiate: appraisal.daysToInitiate || 0,
@@ -2607,6 +2653,7 @@ export class DatabaseStorage implements IStorage {
   ): Promise<InitiatedAppraisal[]> {
     const pool = await getPool();
     try {
+      // SP expects @CreatedById parameter
       const result = await pool
         .request()
         .input("CreatedById", createdById)
@@ -2614,7 +2661,8 @@ export class DatabaseStorage implements IStorage {
       return (result.recordset || []).map((r) =>
         mergeInitiatedAppraisal(mapRawInitiatedAppraisal(r))
       );
-    } catch {
+    } catch (error) {
+      console.error("Error in getInitiatedAppraisals:", error);
       return [];
     }
   }

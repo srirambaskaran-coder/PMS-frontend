@@ -117,6 +117,7 @@ BEGIN
     u.first_name AS FirstName,
     u.last_name AS LastName,
     u.email AS Email,
+    u.code AS Code,
     u.designation AS Designation,
     u.department AS Department
   FROM dbo.appraisal_group_members agm
@@ -183,10 +184,11 @@ GO
 
 CREATE OR ALTER PROCEDURE dbo.CreateInitiatedAppraisal
   @AppraisalGroupId UNIQUEIDENTIFIER,
-  @FrequencyCalendarDetailId UNIQUEIDENTIFIER,
-  @AppraisalCycleId UNIQUEIDENTIFIER,
+  @AppraisalType NVARCHAR(100) = 'questionnaire_based',
+  @FrequencyCalendarDetailId UNIQUEIDENTIFIER = NULL,
+  @AppraisalCycleId UNIQUEIDENTIFIER = NULL,
   @InitiatedById UNIQUEIDENTIFIER,
-  @DaysToClose INT,
+  @DaysToClose INT = 30,
   @Status NVARCHAR(50) = 'active'
 AS
 BEGIN
@@ -194,14 +196,15 @@ BEGIN
   DECLARE @Id UNIQUEIDENTIFIER = NEWID();
   
   INSERT INTO dbo.initiated_appraisals
-    (id, appraisal_group_id, frequency_calendar_detail_id, appraisal_cycle_id, 
+    (id, appraisal_group_id, appraisal_type, frequency_calendar_detail_id, appraisal_cycle_id, 
      initiated_by_id, initiated_at, days_to_close, status, created_at, updated_at)
   VALUES 
-    (@Id, @AppraisalGroupId, @FrequencyCalendarDetailId, @AppraisalCycleId,
+    (@Id, @AppraisalGroupId, @AppraisalType, @FrequencyCalendarDetailId, @AppraisalCycleId,
      @InitiatedById, GETDATE(), @DaysToClose, @Status, GETDATE(), GETDATE());
     
   SELECT 
     id AS Id, appraisal_group_id AS AppraisalGroupId,
+    appraisal_type AS AppraisalType,
     frequency_calendar_detail_id AS FrequencyCalendarDetailId,
     appraisal_cycle_id AS AppraisalCycleId, initiated_by_id AS InitiatedById,
     initiated_at AS InitiatedAt, completed_at AS CompletedAt,
