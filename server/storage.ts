@@ -455,19 +455,28 @@ function mapRawInitiatedAppraisal(raw: any): InitiatedAppraisal {
   // Handle QuestionnaireTemplateId (single) or QuestionnaireTemplateIds (array)
   let questionnaireTemplateIds: string[] = [];
   if (raw.QuestionnaireTemplateIds ?? raw.questionnaire_template_ids) {
-    questionnaireTemplateIds = parseTemplateIds(
-      raw.QuestionnaireTemplateIds ?? raw.questionnaire_template_ids
-    ) ?? [];
+    questionnaireTemplateIds =
+      parseTemplateIds(
+        raw.QuestionnaireTemplateIds ?? raw.questionnaire_template_ids
+      ) ?? [];
   } else if (raw.QuestionnaireTemplateId ?? raw.questionnaire_template_id) {
-    const singleId = raw.QuestionnaireTemplateId ?? raw.questionnaire_template_id;
+    const singleId =
+      raw.QuestionnaireTemplateId ?? raw.questionnaire_template_id;
     if (singleId) questionnaireTemplateIds = [singleId];
   }
-  
+
   return {
     id: raw.Id ?? raw.id,
     appraisalGroupId:
-      raw.AppraisalGroupId ?? raw.appraisal_group_id ?? raw.appraisalGroupId ?? null,
-    appraisalType: raw.AppraisalType ?? raw.appraisal_type ?? raw.appraisalType ?? "questionnaire_based",
+      raw.AppraisalGroupId ??
+      raw.appraisal_group_id ??
+      raw.appraisalGroupId ??
+      null,
+    appraisalType:
+      raw.AppraisalType ??
+      raw.appraisal_type ??
+      raw.appraisalType ??
+      "questionnaire_based",
     questionnaireTemplateIds,
     documentUrl: raw.DocumentUrl ?? raw.document_url ?? raw.documentUrl ?? null,
     frequencyCalendarId:
@@ -496,9 +505,19 @@ function mapRawInitiatedAppraisal(raw: any): InitiatedAppraisal {
     publishType:
       raw.PublishType ?? raw.publish_type ?? raw.publishType ?? "now",
     createdById:
-      raw.CreatedById ?? raw.created_by_id ?? raw.createdById ?? 
-      raw.InitiatedById ?? raw.initiated_by_id ?? null,
-    createdAt: raw.CreatedAt ?? raw.created_at ?? raw.createdAt ?? raw.InitiatedAt ?? raw.initiated_at ?? null,
+      raw.CreatedById ??
+      raw.created_by_id ??
+      raw.createdById ??
+      raw.InitiatedById ??
+      raw.initiated_by_id ??
+      null,
+    createdAt:
+      raw.CreatedAt ??
+      raw.created_at ??
+      raw.createdAt ??
+      raw.InitiatedAt ??
+      raw.initiated_at ??
+      null,
     updatedAt: raw.UpdatedAt ?? raw.updated_at ?? raw.updatedAt ?? null,
   } as InitiatedAppraisal;
 }
@@ -2569,14 +2588,16 @@ export class DatabaseStorage implements IStorage {
     // @FrequencyCalendarId, @DaysToInitiate, @DaysToClose, @NumberOfReminders,
     // @ExcludeTenureLessThanYear, @ExcludedEmployeeIds, @Status, @MakePublic, @PublishType,
     // @CreatedById, @QuestionnaireTemplateIds
-    const questionnaireTemplateId = appraisal.questionnaireTemplateIds?.[0] || null;
-    const questionnaireTemplateIdsJson = appraisal.questionnaireTemplateIds?.length 
-      ? JSON.stringify(appraisal.questionnaireTemplateIds) 
+    const questionnaireTemplateId =
+      appraisal.questionnaireTemplateIds?.[0] || null;
+    const questionnaireTemplateIdsJson = appraisal.questionnaireTemplateIds
+      ?.length
+      ? JSON.stringify(appraisal.questionnaireTemplateIds)
       : null;
     const excludedEmployeeIdsJson = appraisal.excludedEmployeeIds?.length
       ? JSON.stringify(appraisal.excludedEmployeeIds)
       : null;
-    
+
     const req = pool
       .request()
       .input("AppraisalGroupId", appraisal.appraisalGroupId)
@@ -2587,14 +2608,17 @@ export class DatabaseStorage implements IStorage {
       .input("DaysToInitiate", appraisal.daysToInitiate || 0)
       .input("DaysToClose", appraisal.daysToClose || 30)
       .input("NumberOfReminders", appraisal.numberOfReminders || 3)
-      .input("ExcludeTenureLessThanYear", appraisal.excludeTenureLessThanYear || false)
+      .input(
+        "ExcludeTenureLessThanYear",
+        appraisal.excludeTenureLessThanYear || false
+      )
       .input("ExcludedEmployeeIds", excludedEmployeeIdsJson)
       .input("Status", appraisal.status || "draft")
       .input("MakePublic", appraisal.makePublic || false)
       .input("PublishType", appraisal.publishType || "now")
       .input("CreatedById", createdById)
       .input("QuestionnaireTemplateIds", questionnaireTemplateIdsJson);
-    
+
     const result = await req.execute("dbo.CreateInitiatedAppraisal");
     const raw = result.recordset[0];
     const mapped = mapRawInitiatedAppraisal(raw);
