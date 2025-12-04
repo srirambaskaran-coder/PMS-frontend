@@ -10,24 +10,21 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/hooks/useAuth";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
 export function Header() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
   const switchRoleMutation = useMutation({
     mutationFn: async (role: string) => {
-      const response = await apiRequest("POST", "/api/auth/switch-role", {
-        role,
-      });
-      return response.json();
+      // For mock auth, we don't need to switch roles via API
+      return { success: true, role };
     },
     onSuccess: () => {
       // Invalidate and refetch user data
-      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      queryClient.invalidateQueries({ queryKey: ["auth-user"] });
       toast({
         title: "Role switched successfully",
         description: "Your active role has been updated.",
@@ -46,14 +43,8 @@ export function Header() {
     switchRoleMutation.mutate(role);
   };
 
-  const handleLogout = async () => {
-    try {
-      await fetch("/api/auth/logout", { method: "POST" });
-      window.location.href = "/";
-    } catch (error) {
-      console.error("Logout error:", error);
-      window.location.href = "/";
-    }
+  const handleLogout = () => {
+    logout();
   };
 
   // Get active role and available roles from user object

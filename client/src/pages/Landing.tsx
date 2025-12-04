@@ -11,6 +11,8 @@ import { z } from "zod";
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useParams } from "wouter";
+import { mockLogin } from "@/lib/mockAuth";
+import { useAuth } from "@/hooks/useAuth";
 
 const registrationSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
@@ -34,6 +36,7 @@ export default function Landing() {
   const [isLoginOpen, setIsLoginOpen] = useState(false);
   const { toast } = useToast();
   const params = useParams() as { companyUrl?: string };
+  const { refreshAuth } = useAuth();
 
   const registerForm = useForm<RegistrationForm>({
     resolver: zodResolver(registrationSchema),
@@ -93,29 +96,25 @@ export default function Landing() {
 
   const onLoginSubmit = async (data: LoginForm) => {
     try {
-      const response = await fetch('/api/login/company', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
-      });
-
-      if (response.ok) {
-        const result = await response.json();
+      // Use mock authentication for frontend development
+      const user = mockLogin(data.email, data.password);
+      
+      if (user) {
         toast({
           title: "Login Successful",
-          description: `Welcome back! Redirecting to your dashboard...`,
+          description: `Welcome back, ${user.firstName}! Redirecting to your dashboard...`,
         });
         setIsLoginOpen(false);
         loginForm.reset();
+        refreshAuth();
         // Use setTimeout to allow toast to show before redirect
         setTimeout(() => {
           window.location.href = '/';
         }, 1000);
       } else {
-        const errorData = await response.json();
         toast({
           title: "Login Failed",
-          description: errorData.message || "Please check your company URL, email, and password.",
+          description: "Invalid email or password. Try using one of the test accounts.",
           variant: "destructive"
         });
       }
