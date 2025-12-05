@@ -1,4 +1,4 @@
-import { Bell, LogOut, User, RefreshCw } from "lucide-react";
+import { Bell, LogOut, User, RefreshCw, PanelLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -11,11 +11,13 @@ import {
 import { useAuth } from "@/hooks/useAuth";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
+import { useSidebar } from "@/components/SidebarContext";
 
 export function Header() {
   const { user, logout } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { toggleSidebar } = useSidebar();
 
   const switchRoleMutation = useMutation({
     mutationFn: async (role: string) => {
@@ -67,13 +69,27 @@ export function Header() {
       data-testid="header"
     >
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-semibold" data-testid="page-title">
-            Performance Dashboard
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Monitor and manage employee performance reviews
-          </p>
+        <div className="flex items-center gap-4">
+          {/* Sidebar Toggle Button */}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={toggleSidebar}
+            data-testid="toggle-sidebar"
+          >
+            <PanelLeft className="h-5 w-5" />
+            <span className="sr-only">Toggle Sidebar</span>
+          </Button>
+          
+          <div>
+            <h1 className="text-xl font-semibold" data-testid="page-title">
+              Performance Dashboard
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              Monitor and manage employee performance reviews
+            </p>
+          </div>
         </div>
 
         <div className="flex items-center gap-4">
