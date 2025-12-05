@@ -3,7 +3,6 @@ import { Sidebar } from "./Sidebar";
 import { Header } from "./Header";
 import { useAuth } from "@/hooks/useAuth";
 import { Toaster } from "@/components/ui/toaster";
-import { SidebarProvider } from "@/components/SidebarContext";
 
 interface LayoutProps {
   children: ReactNode;
@@ -28,15 +27,15 @@ export function Layout({ children }: LayoutProps) {
   }
 
   return (
-    <SidebarProvider>
-      <div className="flex h-screen w-full overflow-hidden">
-        <Sidebar />
-        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-          <Header />
-          <main className="flex-1 overflow-auto p-6">{children}</main>
-        </div>
-        <Toaster />
+    <div className="flex h-screen overflow-hidden">
+      <Sidebar />
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <Header />
+        <main className="flex-1 overflow-auto p-6">
+          {children}
+        </main>
       </div>
-    </SidebarProvider>
+      <Toaster />
+    </div>
   );
 }
