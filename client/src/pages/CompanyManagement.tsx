@@ -14,8 +14,7 @@ import { insertCompanySchema, type Company, type InsertCompany } from "@shared/s
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { RoleGuard } from "@/components/RoleGuard";
-import { ObjectUploader } from "@/components/ObjectUploader";
-import type { UploadResult } from "@uppy/core";
+import { FileDropzone } from "@/components/FileDropzone";
 import { Plus, Edit, Trash2, Building } from "lucide-react";
 
 export default function CompanyManagement() {
@@ -153,34 +152,38 @@ export default function CompanyManagement() {
     });
   };
 
-  const handleGetUploadParameters = async () => {
-    const response = await apiRequest("POST", "/api/objects/upload");
-    const data = await response.json();
-    return {
-      method: "PUT" as const,
-      url: data.uploadURL,
-    };
-  };
+  const handleFileUpload = async (file: File) => {
+    try {
+      // Get presigned URL
+      const response = await apiRequest("POST", "/api/objects/upload");
+      const data = await response.json();
+      const uploadURL = data.uploadURL;
 
-  const handleUploadComplete = async (result: UploadResult<Record<string, unknown>, Record<string, unknown>>) => {
-    const successful = result.successful ?? [];
-    if (successful.length > 0) {
-      const uploadURL = successful[0].uploadURL;
-      try {
-        const response = await apiRequest("PUT", "/api/company-logos", { logoURL: uploadURL });
-        const data = await response.json();
-        form.setValue("logoUrl", data.objectPath);
-        toast({
-          title: "Success",
-          description: "Logo uploaded successfully",
-        });
-      } catch (error) {
-        toast({
-          title: "Error",
-          description: "Failed to process logo upload",
-          variant: "destructive",
-        });
-      }
+      // Upload file directly to S3
+      await fetch(uploadURL, {
+        method: "PUT",
+        body: file,
+        headers: {
+          "Content-Type": file.type,
+        },
+      });
+
+      // Update the logo URL in the backend
+      const logoResponse = await apiRequest("PUT", "/api/company-logos", { logoURL: uploadURL });
+      const logoData = await logoResponse.json();
+      form.setValue("logoUrl", logoData.objectPath);
+      
+      toast({
+        title: "Success",
+        description: "Logo uploaded successfully",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to upload logo",
+        variant: "destructive",
+      });
+      throw error;
     }
   };
 
@@ -330,53 +333,68 @@ export default function CompanyManagement() {
                     />
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="logoUrl"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Company Logo</FormLabel>
+                  <FormField
+                    control={form.control}
+                    name="status"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Status</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value ?? "active"}>
                           <FormControl>
-                            <div className="space-y-2">
-                              <Input {...field} value={field.value ?? ""} placeholder="Logo URL" data-testid="input-logo-url" />
-                              <ObjectUploader
-                                maxNumberOfFiles={1}
-                                maxFileSize={5242880} // 5MB
-                                onGetUploadParameters={handleGetUploadParameters}
-                                onComplete={handleUploadComplete}
-                                buttonClassName="w-full"
-                              >
-                                <span>Upload Logo</span>
-                              </ObjectUploader>
-                            </div>
+                            <SelectTrigger data-testid="select-status">
+                              <SelectValue placeholder="Select status" />
+                            </SelectTrigger>
                           </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="status"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Status</FormLabel>
-                          <Select onValueChange={field.onChange} value={field.value ?? "active"}>
-                            <FormControl>
-                              <SelectTrigger data-testid="select-status">
-                                <SelectValue placeholder="Select status" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              <SelectItem value="active">Active</SelectItem>
-                              <SelectItem value="inactive">Inactive</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
+                          <SelectContent>
+                            <SelectItem value="active">Active</SelectItem>
+                            <SelectItem value="inactive">Inactive</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  {/* Company Logo Upload Section */}
+                  <FormField
+                    control={form.control}
+                    name="logoUrl"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Company Logo</FormLabel>
+                        <FormControl>
+                          <div className="border rounded-lg p-4 space-y-4">
+                            {/* Option 1: Upload File */}
+                            <FileDropzone
+                              maxFileSize={5242880}
+                              acceptedFileTypes={["image/png", "image/jpeg", "image/gif", "image/webp", "image/svg+xml"]}
+                              onFileSelect={() => {}}
+                              onUpload={handleFileUpload}
+                            />
+                            
+                            {/* OR Divider */}
+                            <div className="relative">
+                              <div className="absolute inset-0 flex items-center">
+                                <span className="w-full border-t" />
+                              </div>
+                              <div className="relative flex justify-center text-xs uppercase">
+                                <span className="bg-background px-2 text-muted-foreground">Or paste URL</span>
+                              </div>
+                            </div>
+                            
+                            {/* Option 2: Paste URL */}
+                            <Input 
+                              {...field} 
+                              value={field.value ?? ""} 
+                              placeholder="https://example.com/logo.png" 
+                              data-testid="input-logo-url" 
+                            />
+                          </div>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
                   <div className="flex gap-3 pt-4">
                     <Button

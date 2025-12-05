@@ -17,7 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 import { RoleGuard } from "@/components/RoleGuard";
 import { useAuth } from "@/hooks/useAuth";
 import { isUnauthorizedError } from "@/lib/authUtils";
-import { Plus, Search, Filter, Edit, Trash2, Key, Upload, Download, FileSpreadsheet, CheckCircle, XCircle } from "lucide-react";
+import { Plus, Search, Filter, Edit, Trash2, Key, Upload, Download, FileSpreadsheet, CheckCircle, XCircle, Eye, EyeOff } from "lucide-react";
 
 export default function EmployeeManagement() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -28,6 +28,8 @@ export default function EmployeeManagement() {
   const [isBulkUploadModalOpen, setIsBulkUploadModalOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadResults, setUploadResults] = useState<any>(null);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -402,6 +404,8 @@ export default function EmployeeManagement() {
 
   const resetForm = () => {
     setEditingUser(null);
+    setShowPassword(false);
+    setShowConfirmPassword(false);
     form.reset({
       firstName: "",
       lastName: "",
@@ -822,19 +826,37 @@ export default function EmployeeManagement() {
                             <FormItem>
                               <FormLabel>New Password</FormLabel>
                               <FormControl>
-                                <Input
-                                  type="password"
-                                  placeholder={
-                                    editingUser && canChangePassword(editingUser) 
-                                      ? "Enter new password" 
-                                      : !editingUser 
-                                        ? "Enter new password"
-                                        : "Authorization required"
-                                  }
-                                  disabled={editingUser ? !canChangePassword(editingUser) : false}
-                                  {...field}
-                                  data-testid="input-password"
-                                />
+                                <div className="relative">
+                                  <Input
+                                    type={showPassword ? "text" : "password"}
+                                    placeholder={
+                                      editingUser && canChangePassword(editingUser) 
+                                        ? "Enter new password" 
+                                        : !editingUser 
+                                          ? "Enter new password"
+                                          : "Authorization required"
+                                    }
+                                    disabled={editingUser ? !canChangePassword(editingUser) : false}
+                                    {...field}
+                                    data-testid="input-password"
+                                    className="pr-10"
+                                  />
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                                    onClick={() => setShowPassword(!showPassword)}
+                                    disabled={editingUser ? !canChangePassword(editingUser) : false}
+                                    tabIndex={-1}
+                                  >
+                                    {showPassword ? (
+                                      <EyeOff className="h-4 w-4 text-muted-foreground" />
+                                    ) : (
+                                      <Eye className="h-4 w-4 text-muted-foreground" />
+                                    )}
+                                  </Button>
+                                </div>
                               </FormControl>
                               <FormMessage />
                             </FormItem>
@@ -847,25 +869,80 @@ export default function EmployeeManagement() {
                             <FormItem>
                               <FormLabel>Confirm Password</FormLabel>
                               <FormControl>
-                                <Input
-                                  type="password"
-                                  placeholder={
-                                    editingUser && canChangePassword(editingUser) 
-                                      ? "Confirm new password" 
-                                      : !editingUser 
-                                        ? "Confirm new password"
-                                        : "Authorization required"
-                                  }
-                                  disabled={editingUser ? !canChangePassword(editingUser) : false}
-                                  {...field}
-                                  data-testid="input-confirm-password"
-                                />
+                                <div className="relative">
+                                  <Input
+                                    type={showConfirmPassword ? "text" : "password"}
+                                    placeholder={
+                                      editingUser && canChangePassword(editingUser) 
+                                        ? "Confirm new password" 
+                                        : !editingUser 
+                                          ? "Confirm new password"
+                                          : "Authorization required"
+                                    }
+                                    disabled={editingUser ? !canChangePassword(editingUser) : false}
+                                    {...field}
+                                    data-testid="input-confirm-password"
+                                    className="pr-10"
+                                  />
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                                    disabled={editingUser ? !canChangePassword(editingUser) : false}
+                                    tabIndex={-1}
+                                  >
+                                    {showConfirmPassword ? (
+                                      <EyeOff className="h-4 w-4 text-muted-foreground" />
+                                    ) : (
+                                      <Eye className="h-4 w-4 text-muted-foreground" />
+                                    )}
+                                  </Button>
+                                </div>
                               </FormControl>
                               <FormMessage />
                             </FormItem>
                           )}
                         />
                       </div>
+                      
+                      {/* Password Match Indicator */}
+                      {(form.watch("password") || form.watch("confirmPassword")) && (
+                        <div className={`flex items-center gap-2 mt-3 p-2 rounded-md transition-all duration-300 ease-in-out ${
+                          form.watch("password") && form.watch("confirmPassword")
+                            ? form.watch("password") === form.watch("confirmPassword")
+                              ? "bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800"
+                              : "bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800"
+                            : "bg-muted/50 border border-muted"
+                        }`}>
+                          {form.watch("password") && form.watch("confirmPassword") ? (
+                            form.watch("password") === form.watch("confirmPassword") ? (
+                              <>
+                                <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400 animate-in zoom-in-50 duration-200" />
+                                <span className="text-sm text-green-700 dark:text-green-300 font-medium animate-in fade-in duration-200">
+                                  Passwords match!
+                                </span>
+                              </>
+                            ) : (
+                              <>
+                                <XCircle className="h-4 w-4 text-red-600 dark:text-red-400 animate-in zoom-in-50 duration-200" />
+                                <span className="text-sm text-red-700 dark:text-red-300 font-medium animate-in fade-in duration-200">
+                                  Passwords do not match
+                                </span>
+                              </>
+                            )
+                          ) : (
+                            <>
+                              <Key className="h-4 w-4 text-muted-foreground" />
+                              <span className="text-sm text-muted-foreground">
+                                Enter both passwords to verify match
+                              </span>
+                            </>
+                          )}
+                        </div>
+                      )}
+                      
                       <p className="text-sm text-muted-foreground mt-2">
                         {editingUser ? (
                           canChangePassword(editingUser)

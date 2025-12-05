@@ -1,4 +1,4 @@
-import { Bell, LogOut, User, RefreshCw } from "lucide-react";
+import { Bell, LogOut, User, RefreshCw, PanelLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -10,22 +10,23 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/hooks/useAuth";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useSidebar } from "@/components/SidebarContext";
 
 export function Header() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { toggleSidebar } = useSidebar();
 
   const switchRoleMutation = useMutation({
     mutationFn: async (role: string) => {
-      const response = await apiRequest("POST", "/api/auth/switch-role", { role });
-      return response.json();
+      // For mock auth, we don't need to switch roles via API
+      return { success: true, role };
     },
     onSuccess: () => {
       // Invalidate and refetch user data
-      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      queryClient.invalidateQueries({ queryKey: ["auth-user"] });
       toast({
         title: "Role switched successfully",
         description: "Your active role has been updated.",
@@ -45,7 +46,7 @@ export function Header() {
   };
 
   const handleLogout = () => {
-    window.location.href = "/api/logout";
+    logout();
   };
 
   // Get active role and available roles from user object
@@ -55,18 +56,40 @@ export function Header() {
 
   // Helper function to format role names properly
   const formatRoleName = (role: string) => {
-    if (role === 'hr_manager') return 'HR Manager';
-    return role.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+    if (role === "hr_manager") return "HR Manager";
+    return role
+      .split("_")
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(" ");
   };
 
   return (
-    <header className="bg-card border-b border-border px-6 py-4" data-testid="header">
+    <header
+      className="bg-card border-b border-border px-6 py-4"
+      data-testid="header"
+    >
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-semibold" data-testid="page-title">Performance Dashboard</h1>
-          <p className="text-sm text-muted-foreground">
-            Monitor and manage employee performance reviews
-          </p>
+        <div className="flex items-center gap-4">
+          {/* Sidebar Toggle Button */}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={toggleSidebar}
+            data-testid="toggle-sidebar"
+          >
+            <PanelLeft className="h-5 w-5" />
+            <span className="sr-only">Toggle Sidebar</span>
+          </Button>
+          
+          <div>
+            <h1 className="text-xl font-semibold" data-testid="page-title">
+              Performance Dashboard
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              Monitor and manage employee performance reviews
+            </p>
+          </div>
         </div>
 
         <div className="flex items-center gap-4">
@@ -86,13 +109,20 @@ export function Header() {
           {/* User Profile */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="relative h-8 w-8 rounded-full" data-testid="user-profile-button">
+              <Button
+                variant="ghost"
+                className="relative h-8 w-8 rounded-full"
+                data-testid="user-profile-button"
+              >
                 <div className="w-8 h-8 bg-accent rounded-full flex items-center justify-center">
                   <span className="text-accent-foreground text-sm font-medium">
-                    {(user as any)?.firstName && (user as any)?.lastName 
-                      ? `${(user as any).firstName[0]?.toUpperCase()}${(user as any).lastName[0]?.toUpperCase()}`
-                      : <User className="h-4 w-4" />
-                    }
+                    {(user as any)?.firstName && (user as any)?.lastName ? (
+                      `${(user as any).firstName[0]?.toUpperCase()}${(
+                        user as any
+                      ).lastName[0]?.toUpperCase()}`
+                    ) : (
+                      <User className="h-4 w-4" />
+                    )}
                   </span>
                 </div>
               </Button>
@@ -100,17 +130,25 @@ export function Header() {
             <DropdownMenuContent className="w-56" align="end" forceMount>
               <DropdownMenuLabel className="font-normal">
                 <div className="flex flex-col space-y-1">
-                  <p className="text-sm font-medium leading-none" data-testid="user-name-display">
-                    {(user as any)?.firstName && (user as any)?.lastName 
+                  <p
+                    className="text-sm font-medium leading-none"
+                    data-testid="user-name-display"
+                  >
+                    {(user as any)?.firstName && (user as any)?.lastName
                       ? `${(user as any).firstName} ${(user as any).lastName}`
-                      : 'Loading...'
-                    }
+                      : "Loading..."}
                   </p>
-                  <p className="text-xs leading-none text-muted-foreground" data-testid="user-email-display">
-                    {(user as any)?.email || 'Loading...'}
+                  <p
+                    className="text-xs leading-none text-muted-foreground"
+                    data-testid="user-email-display"
+                  >
+                    {(user as any)?.email || "Loading..."}
                   </p>
-                  <p className="text-xs leading-none text-muted-foreground" data-testid="user-role-display">
-                    {activeRole ? formatRoleName(activeRole) : 'Loading...'}
+                  <p
+                    className="text-xs leading-none text-muted-foreground"
+                    data-testid="user-role-display"
+                  >
+                    {activeRole ? formatRoleName(activeRole) : "Loading..."}
                     {hasMultipleRoles && (
                       <span className="ml-1 text-primary">•</span>
                     )}
@@ -118,7 +156,7 @@ export function Header() {
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              
+
               {/* Role Switcher - Only show if user has multiple roles */}
               {hasMultipleRoles && (
                 <>
@@ -129,21 +167,34 @@ export function Header() {
                     <DropdownMenuItem
                       key={role}
                       onClick={() => handleSwitchRole(role)}
-                      disabled={role === activeRole || switchRoleMutation.isPending}
+                      disabled={
+                        role === activeRole || switchRoleMutation.isPending
+                      }
                       data-testid={`switch-role-${role}`}
                     >
-                      <RefreshCw className={`mr-2 h-4 w-4 ${switchRoleMutation.isPending ? 'animate-spin' : ''}`} />
-                      <span className={role === activeRole ? 'font-medium' : ''}>
+                      <RefreshCw
+                        className={`mr-2 h-4 w-4 ${
+                          switchRoleMutation.isPending ? "animate-spin" : ""
+                        }`}
+                      />
+                      <span
+                        className={role === activeRole ? "font-medium" : ""}
+                      >
                         {formatRoleName(role)}
-                        {role === activeRole && <span className="ml-2 text-primary">✓</span>}
+                        {role === activeRole && (
+                          <span className="ml-2 text-primary">✓</span>
+                        )}
                       </span>
                     </DropdownMenuItem>
                   ))}
                   <DropdownMenuSeparator />
                 </>
               )}
-              
-              <DropdownMenuItem onClick={handleLogout} data-testid="logout-button">
+
+              <DropdownMenuItem
+                onClick={handleLogout}
+                data-testid="logout-button"
+              >
                 <LogOut className="mr-2 h-4 w-4" />
                 <span>Sign out</span>
               </DropdownMenuItem>
