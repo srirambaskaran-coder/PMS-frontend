@@ -1,6 +1,10 @@
 import { useState, useEffect, useCallback } from "react";
 import { type SafeUser } from "@shared/schema";
-import { getMockAuthUser, setMockAuthUser, mockLogout as doMockLogout } from "@/lib/mockAuth";
+import {
+  getMockAuthUser,
+  setMockAuthUser,
+  mockLogout as doMockLogout,
+} from "@/lib/mockAuth";
 
 export function useAuth() {
   const [user, setUser] = useState<SafeUser | null>(null);

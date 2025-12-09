@@ -1,4 +1,4 @@
-import { Bell, LogOut, User, RefreshCw, PanelLeft } from "lucide-react";
+import { LogOut, User, RefreshCw, PanelLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -81,7 +81,7 @@ export function Header() {
             <PanelLeft className="h-5 w-5" />
             <span className="sr-only">Toggle Sidebar</span>
           </Button>
-          
+
           <div>
             <h1 className="text-xl font-semibold" data-testid="page-title">
               Performance Dashboard
@@ -93,28 +93,15 @@ export function Header() {
         </div>
 
         <div className="flex items-center gap-4">
-          {/* Notifications */}
-          <div className="relative">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="relative"
-              data-testid="notifications-button"
-            >
-              <Bell className="h-5 w-5" />
-              <span className="absolute -top-1 -right-1 w-3 h-3 bg-destructive rounded-full"></span>
-            </Button>
-          </div>
-
           {/* User Profile */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
                 variant="ghost"
-                className="relative h-8 w-8 rounded-full"
+                className="relative h-10 w-10 rounded-full p-0"
                 data-testid="user-profile-button"
               >
-                <div className="w-8 h-8 bg-accent rounded-full flex items-center justify-center">
+                <div className="w-10 h-10 bg-accent rounded-full flex items-center justify-center">
                   <span className="text-accent-foreground text-sm font-medium">
                     {(user as any)?.firstName && (user as any)?.lastName ? (
                       `${(user as any).firstName[0]?.toUpperCase()}${(

@@ -203,10 +203,12 @@ export function Sidebar() {
       </div>
 
       {/* Navigation Menu - Scrollable with custom scrollbar */}
-      <nav 
+      <nav
         className={cn(
           "flex-1 overflow-y-auto overflow-x-hidden space-y-1",
-          collapsed ? "sidebar-scroll-collapsed px-1.5 py-2" : "sidebar-scroll px-2 py-2"
+          collapsed
+            ? "sidebar-scroll-collapsed px-1.5 py-2"
+            : "sidebar-scroll px-2 py-2"
         )}
       >
         {filteredNavItems.map((item) => {
@@ -219,8 +221,8 @@ export function Sidebar() {
               href={item.href}
               className={cn(
                 "flex items-center rounded-md text-sm font-medium transition-colors",
-                collapsed 
-                  ? "justify-center w-10 h-10 mx-auto" 
+                collapsed
+                  ? "justify-center w-10 h-10 mx-auto"
                   : "gap-3 px-3 py-2",
                 isActive
                   ? "bg-primary text-primary-foreground"

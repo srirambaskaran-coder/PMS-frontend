@@ -1,6 +1,12 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Users, Building, Shield, UserCheck, User } from "lucide-react";
 import { MOCK_USERS, mockLoginById } from "@/lib/mockAuth";
@@ -15,7 +21,7 @@ const roleIcons = {
 
 const roleColors = {
   super_admin: "bg-red-500",
-  admin: "bg-purple-500", 
+  admin: "bg-purple-500",
   hr_manager: "bg-blue-500",
   manager: "bg-green-500",
   employee: "bg-gray-500",
@@ -26,7 +32,7 @@ export default function DevLogin() {
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
   // Convert MOCK_USERS to test users format
-  const testUsers = MOCK_USERS.map(user => ({
+  const testUsers = MOCK_USERS.map((user) => ({
     id: user.id,
     role: user.role || "employee",
     email: user.email || "",
@@ -36,7 +42,7 @@ export default function DevLogin() {
   const handleLogin = (userId: string) => {
     setSelectedUser(userId);
     setIsLoggingIn(true);
-    
+
     const user = mockLoginById(userId);
     if (user) {
       // Small delay to show loading state
@@ -68,17 +74,21 @@ export default function DevLogin() {
           {testUsers.map((user) => {
             const Icon = roleIcons[user.role as keyof typeof roleIcons] || User;
             const isLoading = isLoggingIn && selectedUser === user.id;
-            
+
             return (
-              <Card 
-                key={user.id} 
+              <Card
+                key={user.id}
                 className="hover:shadow-lg transition-shadow cursor-pointer"
                 onClick={() => !isLoggingIn && handleLogin(user.id)}
                 data-testid={`login-card-${user.role}`}
               >
                 <CardHeader className="text-center">
                   <div className="flex justify-center mb-3">
-                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${roleColors[user.role as keyof typeof roleColors]}`}>
+                    <div
+                      className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+                        roleColors[user.role as keyof typeof roleColors]
+                      }`}
+                    >
                       <Icon className="h-6 w-6 text-white" />
                     </div>
                   </div>
@@ -87,9 +97,9 @@ export default function DevLogin() {
                 </CardHeader>
                 <CardContent className="text-center">
                   <Badge variant="secondary" className="mb-4">
-                    {user.role.replace('_', ' ').toUpperCase()}
+                    {user.role.replace("_", " ").toUpperCase()}
                   </Badge>
-                  <Button 
+                  <Button
                     className="w-full"
                     disabled={isLoggingIn}
                     data-testid={`login-button-${user.role}`}
@@ -107,13 +117,14 @@ export default function DevLogin() {
             <CardHeader>
               <CardTitle className="text-lg">Frontend Demo Mode</CardTitle>
               <CardDescription>
-                This is a frontend-only demo version. Select any role above to explore the UI.
+                This is a frontend-only demo version. Select any role above to
+                explore the UI.
               </CardDescription>
             </CardHeader>
             <CardContent>
               <p className="text-sm text-muted-foreground">
-                All data shown is mock data for demonstration purposes. 
-                Backend functionality will be connected separately.
+                All data shown is mock data for demonstration purposes. Backend
+                functionality will be connected separately.
               </p>
             </CardContent>
           </Card>
