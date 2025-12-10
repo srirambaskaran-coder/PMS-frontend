@@ -207,10 +207,13 @@ export default function EmployeeManagement() {
 
   const handleDownloadTemplate = async () => {
     try {
-      const response = await fetch(getApiUrl("/api/users/bulk-upload/template"), {
-        method: "GET",
-        credentials: "include",
-      });
+      const response = await fetch(
+        getApiUrl("/api/users/bulk-upload/template"),
+        {
+          method: "GET",
+          credentials: "include",
+        }
+      );
 
       if (!response.ok) throw new Error("Failed to download template");
 

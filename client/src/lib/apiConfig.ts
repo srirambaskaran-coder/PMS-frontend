@@ -1,6 +1,6 @@
 /**
  * API Configuration Utility
- * 
+ *
  * Priority order:
  * 1. VITE_API_URL (manual override - highest priority)
  * 2. Auto-derived from frontend domain
@@ -13,19 +13,19 @@ interface DomainMapping {
 
 // Map frontend domains to backend API URLs
 const DOMAIN_TO_API_MAP: DomainMapping = {
-  'smeqc.com': 'https://api.smeqc.com',
-  'www.smeqc.com': 'https://api.smeqc.com',
-  'localhost': 'http://localhost:5000',
-  '127.0.0.1': 'http://localhost:5000',
+  "smeqc.com": "https://api.smeqc.com",
+  "www.smeqc.com": "https://api.smeqc.com",
+  localhost: "http://localhost:5000",
+  "127.0.0.1": "http://localhost:5000",
   // Add more domain mappings as needed
 };
 
 // Stage-based fallback URLs
 const STAGE_API_URLS = {
-  local: import.meta.env.VITE_API_URL_LOCAL || 'http://localhost:5000',
-  dev: import.meta.env.VITE_API_URL_DEV || 'http://192.168.11.187:5000',
-  qc: import.meta.env.VITE_API_URL_QC || 'https://qc.api.yourdomain.com',
-  prod: import.meta.env.VITE_API_URL_PROD || 'https://api.yourdomain.com',
+  local: import.meta.env.VITE_API_URL_LOCAL || "http://localhost:5000",
+  dev: import.meta.env.VITE_API_URL_DEV || "http://192.168.11.187:5000",
+  qc: import.meta.env.VITE_API_URL_QC || "https://qc.api.yourdomain.com",
+  prod: import.meta.env.VITE_API_URL_PROD || "https://api.yourdomain.com",
 };
 
 /**
@@ -40,7 +40,7 @@ export function getApiBaseUrl(): string {
 
   // Priority 2: Auto-derive from current frontend domain
   const hostname = window.location.hostname;
-  
+
   // Check exact domain match
   if (DOMAIN_TO_API_MAP[hostname]) {
     return DOMAIN_TO_API_MAP[hostname];
@@ -48,13 +48,13 @@ export function getApiBaseUrl(): string {
 
   // Check if it's a subdomain and try to derive API URL
   // e.g., app.smeqc.com -> api.smeqc.com
-  const parts = hostname.split('.');
+  const parts = hostname.split(".");
   if (parts.length >= 2) {
-    const baseDomain = parts.slice(-2).join('.'); // Get last two parts (domain.tld)
+    const baseDomain = parts.slice(-2).join("."); // Get last two parts (domain.tld)
     if (DOMAIN_TO_API_MAP[baseDomain]) {
       return DOMAIN_TO_API_MAP[baseDomain];
     }
-    
+
     // Try replacing subdomain with 'api'
     const apiDomain = `api.${baseDomain}`;
     // Check if we're on https, use https for API too
@@ -63,7 +63,8 @@ export function getApiBaseUrl(): string {
   }
 
   // Priority 3: Fall back to stage-based configuration
-  const stage = (import.meta.env.VITE_STAGE || 'dev') as keyof typeof STAGE_API_URLS;
+  const stage = (import.meta.env.VITE_STAGE ||
+    "dev") as keyof typeof STAGE_API_URLS;
   return STAGE_API_URLS[stage] || STAGE_API_URLS.dev;
 }
 
@@ -73,8 +74,8 @@ export function getApiBaseUrl(): string {
 export function getApiUrl(path: string): string {
   const baseUrl = getApiBaseUrl();
   // Remove trailing slash from base and leading slash from path to avoid double slashes
-  const cleanBase = baseUrl.replace(/\/$/, '');
-  const cleanPath = path.replace(/^\//, '');
+  const cleanBase = baseUrl.replace(/\/$/, "");
+  const cleanPath = path.replace(/^\//, "");
   return `${cleanBase}/${cleanPath}`;
 }
 
@@ -88,11 +89,11 @@ export function getCurrentApiBase(): string {
 
 // Log the current API configuration in development
 if (import.meta.env.DEV) {
-  console.log('🔧 API Configuration:', {
+  console.log("🔧 API Configuration:", {
     baseUrl: getApiBaseUrl(),
-    source: import.meta.env.VITE_API_URL 
-      ? 'VITE_API_URL (manual override)' 
+    source: import.meta.env.VITE_API_URL
+      ? "VITE_API_URL (manual override)"
       : `Auto-derived from ${window.location.hostname}`,
-    stage: import.meta.env.VITE_STAGE || 'dev',
+    stage: import.meta.env.VITE_STAGE || "dev",
   });
 }

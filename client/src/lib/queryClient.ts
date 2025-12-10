@@ -11,11 +11,11 @@ async function throwIfResNotOk(res: Response) {
 export async function apiRequest(
   method: string,
   url: string,
-  data?: unknown | undefined,
+  data?: unknown | undefined
 ): Promise<Response> {
   // Convert relative URLs to absolute using API config
-  const fullUrl = url.startsWith('http') ? url : getApiUrl(url);
-  
+  const fullUrl = url.startsWith("http") ? url : getApiUrl(url);
+
   const res = await fetch(fullUrl, {
     method,
     headers: data ? { "Content-Type": "application/json" } : {},
@@ -35,8 +35,8 @@ export const getQueryFn: <T>(options: {
   async ({ queryKey }) => {
     // Convert relative URLs to absolute using API config
     const urlPath = queryKey.join("/") as string;
-    const fullUrl = urlPath.startsWith('http') ? urlPath : getApiUrl(urlPath);
-    
+    const fullUrl = urlPath.startsWith("http") ? urlPath : getApiUrl(urlPath);
+
     const res = await fetch(fullUrl, {
       credentials: "include",
     });
