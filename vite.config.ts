@@ -12,20 +12,16 @@ export default defineConfig({
     },
   },
   root: path.resolve(__dirname, "client"),
+  // Load .env files from the parent directory (where PerformMgmt/.env is)
+  envDir: path.resolve(__dirname),
   build: {
     outDir: path.resolve(__dirname, "dist"),
     emptyOutDir: true,
   },
   server: {
     port: 5173,
-    // Proxy API requests to the backend server
-    // Update the target URL to match your backend server address
-    proxy: {
-      "/api": {
-        target: process.env.VITE_API_URL || "http://localhost:3000",
-        changeOrigin: true,
-        secure: false,
-      },
-    },
+    // Proxy disabled - using direct API URLs via apiConfig.ts
+    // This allows the app to connect to any backend (local, remote, or tunneled)
+    // Configure backend URL in .env using VITE_API_URL
   },
 });

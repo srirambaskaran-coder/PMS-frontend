@@ -1,3 +1,4 @@
+import { getApiUrl } from "@/lib/apiConfig";
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
@@ -219,7 +220,7 @@ export default function InitiateAppraisal() {
     queryKey: ['/api/frequency-calendars', selectedCalendarId, 'details'],
     queryFn: async () => {
       if (!selectedCalendarId) return [];
-      const response = await fetch(`/api/frequency-calendars/${selectedCalendarId}/details`, {
+      const response = await fetch(getApiUrl(`/api/frequency-calendars/${selectedCalendarId}/details`), {
         credentials: 'include',
       });
       if (!response.ok) {
@@ -235,7 +236,7 @@ export default function InitiateAppraisal() {
     mutationFn: async (data: InitiateAppraisalForm & { appraisalGroupId: string }) => {
       // For now, send as JSON since file upload is not fully implemented
       // TODO: Implement proper file upload with FormData when needed
-      const response = await fetch('/api/initiate-appraisal', {
+      const response = await fetch(getApiUrl('/api/initiate-appraisal'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

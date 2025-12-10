@@ -1,3 +1,4 @@
+import { getApiUrl } from "@/lib/apiConfig";
 import { useState, useEffect } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
@@ -169,7 +170,7 @@ export default function Settings() {
     try {
       console.log('Starting upload...');
       // Get signed upload URL
-      const urlResponse = await fetch('/api/objects/upload', {
+      const urlResponse = await fetch(getApiUrl('/api/objects/upload'), {
         method: 'POST',
         credentials: 'include',
       });

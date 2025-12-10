@@ -1,3 +1,4 @@
+import { getApiUrl } from "@/lib/apiConfig";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -95,7 +96,7 @@ export default function Evaluations() {
         employeeId: user?.id || '',
         includeQuestionnaires: 'true'
       });
-      const response = await fetch(`/api/evaluations?${params}`);
+      const response = await fetch(getApiUrl(`/api/evaluations?${params}`));
       if (!response.ok) throw new Error('Failed to fetch evaluations');
       return response.json();
     },
@@ -244,7 +245,7 @@ export default function Evaluations() {
         format
       };
       
-      const response = await fetch('/api/evaluations/export', {
+      const response = await fetch(getApiUrl('/api/evaluations/export'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',

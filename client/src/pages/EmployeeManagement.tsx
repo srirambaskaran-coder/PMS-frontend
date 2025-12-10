@@ -1,3 +1,4 @@
+import { getApiUrl } from "@/lib/apiConfig";
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -206,7 +207,7 @@ export default function EmployeeManagement() {
 
   const handleDownloadTemplate = async () => {
     try {
-      const response = await fetch("/api/users/bulk-upload/template", {
+      const response = await fetch(getApiUrl("/api/users/bulk-upload/template"), {
         method: "GET",
         credentials: "include",
       });

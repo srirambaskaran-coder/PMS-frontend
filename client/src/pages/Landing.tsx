@@ -1,3 +1,4 @@
+import { getApiUrl } from "@/lib/apiConfig";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -39,8 +40,6 @@ import { z } from "zod";
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useParams } from "wouter";
-import { mockLogin, MOCK_CREDENTIALS, MOCK_USERS } from "@/lib/mockAuth";
-import { useAuth } from "@/hooks/useAuth";
 
 const registrationSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
@@ -95,36 +94,61 @@ export default function Landing() {
   }, [params.companyUrl, loginForm]);
 
   const onRegisterSubmit = async (data: RegistrationForm) => {
-    // Mock registration for frontend-only version
-    toast({
-      title: "Registration Successful",
-      description:
-        "Thank you for your interest! This is a demo - use the test credentials to login.",
-    });
-    setIsRegisterOpen(false);
-    registerForm.reset();
+    try {
+      const response = await fetch(getApiUrl("/api/registration"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+
+      if (response.ok) {
+        toast({
+          title: "Registration Successful",
+          description: "Thank you for your interest! We'll contact you soon.",
+        });
+        setIsRegisterOpen(false);
+        registerForm.reset();
+      } else {
+        throw new Error("Registration failed");
+      }
+    } catch (error) {
+      toast({
+        title: "Registration Failed",
+        description: "Please try again later.",
+        variant: "destructive",
+      });
+    }
   };
 
   const onLoginSubmit = async (data: LoginForm) => {
-    // Use mock login for frontend-only version
-    const user = mockLogin(data.email, data.password);
+    try {
+      const response = await fetch(getApiUrl("/api/login/company"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
 
-    if (user) {
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({} as any));
+        throw new Error(
+          errorData.message ||
+            "Please check your company URL, email, and password."
+        );
+      }
+
       toast({
         title: "Login Successful",
-        description: `Welcome back, ${user.firstName}! Redirecting to your dashboard...`,
+        description: `Welcome back! Redirecting to your dashboard...`,
       });
       setIsLoginOpen(false);
       loginForm.reset();
-      // Use setTimeout to allow toast to show before redirect
       setTimeout(() => {
         window.location.href = "/";
-      }, 500);
-    } else {
+      }, 1000);
+    } catch (error: any) {
       toast({
         title: "Login Failed",
-        description:
-          "Please check your email and password. Try: hr@pms.dev / HRManager@2024!",
+        description: error?.message || "Please try again later.",
         variant: "destructive",
       });
     }

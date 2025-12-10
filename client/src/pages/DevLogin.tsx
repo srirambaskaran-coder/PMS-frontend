@@ -1,4 +1,6 @@
+import { getApiUrl } from "@/lib/apiConfig";
 import { useState } from "react";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -9,7 +11,14 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Users, Building, Shield, UserCheck, User } from "lucide-react";
-import { MOCK_USERS, mockLoginById } from "@/lib/mockAuth";
+import { apiRequest } from "@/lib/queryClient";
+
+interface TestUser {
+  id: string;
+  role: string;
+  email: string;
+  name: string;
+}
 
 const roleIcons = {
   super_admin: Shield,
@@ -29,31 +38,59 @@ const roleColors = {
 
 export default function DevLogin() {
   const [selectedUser, setSelectedUser] = useState<string | null>(null);
-  const [isLoggingIn, setIsLoggingIn] = useState(false);
 
-  // Convert MOCK_USERS to test users format
-  const testUsers = MOCK_USERS.map((user) => ({
-    id: user.id,
-    role: user.role || "employee",
-    email: user.email || "",
-    name: `${user.firstName} ${user.lastName}`,
-  }));
+  // Get test users
+  const { data: testUsersData, isLoading } = useQuery({
+    queryKey: ["/api/dev/test-users"],
+  });
+
+  // Seed users mutation
+  const seedUsersMutation = useMutation({
+    mutationFn: () =>
+      fetch(getApiUrl("/api/dev/seed-users"), {
+        method: "POST",
+      }).then((res) => res.json()),
+  });
+
+  // Login as user mutation
+  const loginMutation = useMutation({
+    mutationFn: (userId: string) =>
+      fetch(getApiUrl("/api/dev/login"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId }),
+      }).then((res) => res.json()),
+    onSuccess: () => {
+      window.location.href = "/";
+    },
+  });
+
+  const handleSeedUsers = async () => {
+    try {
+      await seedUsersMutation.mutateAsync();
+      window.location.reload();
+    } catch (error) {
+      console.error("Failed to seed users:", error);
+    }
+  };
 
   const handleLogin = (userId: string) => {
     setSelectedUser(userId);
-    setIsLoggingIn(true);
-
-    const user = mockLoginById(userId);
-    if (user) {
-      // Small delay to show loading state
-      setTimeout(() => {
-        window.location.href = "/";
-      }, 300);
-    } else {
-      setIsLoggingIn(false);
-      setSelectedUser(null);
-    }
+    loginMutation.mutate(userId);
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p>Loading development login...</p>
+        </div>
+      </div>
+    );
+  }
+
+  const testUsers: TestUser[] = (testUsersData as any)?.testUsers || [];
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background to-muted/20 flex items-center justify-center p-4">
@@ -70,61 +107,91 @@ export default function DevLogin() {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {testUsers.map((user) => {
-            const Icon = roleIcons[user.role as keyof typeof roleIcons] || User;
-            const isLoading = isLoggingIn && selectedUser === user.id;
-
-            return (
-              <Card
-                key={user.id}
-                className="hover:shadow-lg transition-shadow cursor-pointer"
-                onClick={() => !isLoggingIn && handleLogin(user.id)}
-                data-testid={`login-card-${user.role}`}
+        {testUsers.length === 0 ? (
+          <Card className="max-w-md mx-auto">
+            <CardHeader className="text-center">
+              <CardTitle>Setup Required</CardTitle>
+              <CardDescription>
+                Test users haven't been created yet. Click below to seed the
+                database with test accounts.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="text-center">
+              <Button
+                onClick={handleSeedUsers}
+                disabled={seedUsersMutation.isPending}
+                size="lg"
+                data-testid="seed-users-button"
               >
-                <CardHeader className="text-center">
-                  <div className="flex justify-center mb-3">
-                    <div
-                      className={`w-12 h-12 rounded-xl flex items-center justify-center ${
-                        roleColors[user.role as keyof typeof roleColors]
-                      }`}
-                    >
-                      <Icon className="h-6 w-6 text-white" />
+                {seedUsersMutation.isPending
+                  ? "Creating Users..."
+                  : "Create Test Users"}
+              </Button>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {testUsers.map((user) => {
+              const Icon =
+                roleIcons[user.role as keyof typeof roleIcons] || User;
+              const isLoading =
+                loginMutation.isPending && selectedUser === user.id;
+
+              return (
+                <Card
+                  key={user.id}
+                  className="hover:shadow-lg transition-shadow cursor-pointer"
+                  onClick={() => handleLogin(user.id)}
+                  data-testid={`login-card-${user.role}`}
+                >
+                  <CardHeader className="text-center">
+                    <div className="flex justify-center mb-3">
+                      <div
+                        className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+                          roleColors[user.role as keyof typeof roleColors]
+                        }`}
+                      >
+                        <Icon className="h-6 w-6 text-white" />
+                      </div>
                     </div>
-                  </div>
-                  <CardTitle className="text-lg">{user.name}</CardTitle>
-                  <CardDescription>{user.email}</CardDescription>
-                </CardHeader>
-                <CardContent className="text-center">
-                  <Badge variant="secondary" className="mb-4">
-                    {user.role.replace("_", " ").toUpperCase()}
-                  </Badge>
-                  <Button
-                    className="w-full"
-                    disabled={isLoggingIn}
-                    data-testid={`login-button-${user.role}`}
-                  >
-                    {isLoading ? "Logging in..." : "Login as this user"}
-                  </Button>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
+                    <CardTitle className="text-lg">{user.name}</CardTitle>
+                    <CardDescription>{user.email}</CardDescription>
+                  </CardHeader>
+                  <CardContent className="text-center">
+                    <Badge variant="secondary" className="mb-4">
+                      {user.role.replace("_", " ").toUpperCase()}
+                    </Badge>
+                    <Button
+                      className="w-full"
+                      disabled={isLoading}
+                      data-testid={`login-button-${user.role}`}
+                    >
+                      {isLoading ? "Logging in..." : "Login as this user"}
+                    </Button>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        )}
 
         <div className="mt-8 text-center">
           <Card className="max-w-2xl mx-auto">
             <CardHeader>
-              <CardTitle className="text-lg">Frontend Demo Mode</CardTitle>
+              <CardTitle className="text-lg">
+                OAuth Authentication Issue
+              </CardTitle>
               <CardDescription>
-                This is a frontend-only demo version. Select any role above to
-                explore the UI.
+                The Replit OAuth authentication is currently experiencing
+                issues. This development login system allows you to test all
+                user roles without OAuth.
               </CardDescription>
             </CardHeader>
             <CardContent>
               <p className="text-sm text-muted-foreground">
-                All data shown is mock data for demonstration purposes. Backend
-                functionality will be connected separately.
+                Once OAuth is working, users will login through the normal
+                Replit authentication flow. This dev login will be removed in
+                production.
               </p>
             </CardContent>
           </Card>
